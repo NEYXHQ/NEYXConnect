@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { ethers } from "ethers";
+// import neyxtLogo from "../assets/LOGO-TEXT-orange.png";
+// import ethLogo from "../assets/eth-logo.png";
 
 // Hardcoded genesis addresses
-
 const genesisAddresses = new Set<string>([
     "0x1134Bb07cb7F35946E7e02f58cA7fcC64698B59b",
     "0x99Bb88cbC2A1D0B12f3BA63Cd51aC919B7601179",
@@ -26,10 +27,11 @@ const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
 ];
 
-const App: React.FC = () => {
+const TokenDiscovery: React.FC = () => {
   const [address, setAddress] = useState<string>("");
   const [isGenesis, setIsGenesis] = useState<boolean | null>(null);
-  const [hasNEYXT, setHasNEYXT] = useState<boolean | null>(null);
+  const [neyxtBalance, setNeyxtBalance] = useState<string | null>(null);
+  const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const INFURA_API_KEY = import.meta.env.VITE_INFURA_API_KEY;
@@ -38,27 +40,28 @@ const App: React.FC = () => {
 
   // Check if the address is a genesis address
   const checkGenesis = (inputAddress: string) => {
-    console.log("address : ",inputAddress.toLowerCase())
-    return genesisAddresses.has(inputAddress);
+    return genesisAddresses.has(inputAddress.toLowerCase());
   };
 
-  // Check if the address holds NEYXT tokens
-  const checkNEYXTBalance = async (inputAddress: string) => {
-    try {
-      const contract = new ethers.Contract(NEYXT_TOKEN_ADDRESS, ERC20_ABI, provider);
-      const balance = await contract.balanceOf(inputAddress);
-      return balance > 0n; // Returns true if balance > 0
-    } catch (err) {
-      console.error(err);
-      throw new Error("Failed to fetch NEYXT token balance.");
-    }
+  // Fetch NEYXT token balance
+  const fetchNEYXTBalance = async (inputAddress: string) => {
+    const contract = new ethers.Contract(NEYXT_TOKEN_ADDRESS, ERC20_ABI, provider);
+    const balance = await contract.balanceOf(inputAddress);
+    return ethers.formatUnits(balance, 18); // Convert to human-readable format
   };
 
-  // Handle form submission
+  // Fetch ETH balance
+  const fetchETHBalance = async (inputAddress: string) => {
+    const balance = await provider.getBalance(inputAddress);
+    return ethers.formatEther(balance); // Convert to Ether
+  };
+
+  // Handle address check
   const handleCheck = async () => {
     setError(null);
     setIsGenesis(null);
-    setHasNEYXT(null);
+    setNeyxtBalance(null);
+    setEthBalance(null);
 
     if (!ethers.isAddress(address)) {
       setError("Invalid Ethereum address");
@@ -66,41 +69,73 @@ const App: React.FC = () => {
     }
 
     try {
-      // Check if it's a genesis address
-      const genesis = checkGenesis(address);
-      setIsGenesis(genesis);
+      setIsGenesis(checkGenesis(address));
 
-      // Check if it holds NEYXT tokens
-      const holdsNEYXT = await checkNEYXTBalance(address);
-      setHasNEYXT(holdsNEYXT);
+      const [neyxt, eth] = await Promise.all([
+        fetchNEYXTBalance(address),
+        fetchETHBalance(address),
+      ]);
+
+      setNeyxtBalance(neyxt);
+      setEthBalance(eth);
     } catch (err) {
-        if (err instanceof Error) {
-            setError(err.message || "An error occurred while checking the address.");
-          } else {
-            console.error("An unexpected error occurred:", err);
-          }  
+      console.error(err);
+      setError("Failed to fetch balances.");
     }
   };
 
   return (
-    <div>
-      <h1>NEYXT Address Checker</h1>
-      <input
-        type="text"
-        placeholder="Enter Ethereum address"
-        value={address}
-        onChange={(e) => setAddress(e.target.value)}
-      />
-      <button onClick={handleCheck}>Check Address</button>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {isGenesis !== null && (
-        <p>{isGenesis ? "This is a genesis address for NEYXT." : "This is NOT a genesis address for NEYXT."}</p>
-      )}
-      {hasNEYXT !== null && (
-        <p>{hasNEYXT ? "This address holds NEYXT tokens." : "This address does NOT hold NEYXT tokens."}</p>
-      )}
+    <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col items-center justify-center p-4">
+      {/* Logo */}
+      {/* <img src={neyxtLogo} alt="NEYXT Logo" className="w-24 mb-6" /> */}
+
+      {/* Title */}
+      <h1 className="text-3xl font-bold mb-8">NEYXT Token Discovery</h1>
+
+      {/* Input Section */}
+      <div className="w-full max-w-md bg-gray-800 p-6 rounded-lg shadow-lg">
+        <input
+          type="text"
+          className="w-full p-3 rounded-md bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+          placeholder="Enter Ethereum address"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
+        <button
+          onClick={handleCheck}
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-md transition"
+        >
+          Check Address
+        </button>
+      </div>
+
+      {/* Results Section */}
+      <div className="mt-8 w-full max-w-md bg-gray-800 p-6 rounded-lg shadow-lg">
+        {error && <p className="text-red-500">{error}</p>}
+        {isGenesis !== null && (
+          <p className="text-sm">
+            <strong>Genesis Address:</strong> {isGenesis ? "Yes" : "No"}
+          </p>
+        )}
+        {neyxtBalance !== null && (
+          <div className="flex items-center mt-4">
+            {/* <img src={neyxtLogo} alt="NEYXT Token" className="w-8 h-8 mr-2" /> */}
+            <p className="text-sm">
+              <strong>NEYXT Balance:</strong> {neyxtBalance}
+            </p>
+          </div>
+        )}
+        {ethBalance !== null && (
+          <div className="flex items-center mt-4">
+            {/* <img src={ethLogo} alt="ETH Token" className="w-8 h-8 mr-2" /> */}
+            <p className="text-sm">
+              <strong>ETH Balance:</strong> {ethBalance}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-export default App;
+export default TokenDiscovery;
