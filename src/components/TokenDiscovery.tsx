@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 
 import logo from "../assets/NEYX_LOGO_TEXT.svg";
 import { TbHexagonLetterG } from "react-icons/tb";
-import { FaEthereum } from "react-icons/fa";
+import { FaEthereum, FaSpinner } from "react-icons/fa";
 import neyxtLogo from "../assets/NEYX_White_Transparnt.svg";
 
 // Hardcoded genesis addresses
@@ -36,6 +36,7 @@ const TokenDiscovery: React.FC = () => {
   const [neyxtBalance, setNeyxtBalance] = useState<string | null>(null);
   const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false); // New loading state
 
   const INFURA_API_KEY = import.meta.env.VITE_INFURA_API_KEY;
   const NETWORK = "mainnet"; // or "goerli" for testnet
@@ -61,9 +62,11 @@ const TokenDiscovery: React.FC = () => {
     setIsGenesis(null);
     setNeyxtBalance(null);
     setEthBalance(null);
+    setLoading(true); // Start loading
 
     if (!ethers.isAddress(address)) {
       setError("Invalid Ethereum address");
+      setLoading(false); // Stop loading
       return;
     }
 
@@ -75,10 +78,10 @@ const TokenDiscovery: React.FC = () => {
     } catch (err) {
       console.error(err);
       setError("Failed to fetch balances.");
+    } finally {
+      setLoading(false); // Stop loading
     }
   };
-
-  
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col items-center p-6">
@@ -105,9 +108,10 @@ const TokenDiscovery: React.FC = () => {
         />
         <button
           onClick={handleCheck}
-          className="w-full bg-neyx-orange hover:bg-orange-300 text-white py-2 rounded-md transition"
+          disabled={loading}
+          className="w-full bg-neyx-orange hover:bg-orange-300 text-white py-2 rounded-md transition flex items-center justify-center gap-2"
         >
-          Check Address
+          {loading ? <FaSpinner className="animate-spin" /> : "Check Address"}
         </button>
       </div>
 
@@ -116,15 +120,15 @@ const TokenDiscovery: React.FC = () => {
         {error && <p className="text-red-500 text-center">{error}</p>}
 
         {isGenesis !== null && (
-          <div className="flex gap-4 items-stretch">
+          <div className="flex gap-4 items-stretch ">
             <div
               className={`flex justify-center items-center w-20 rounded-lg shadow ${
                 isGenesis ? "bg-neyx-orange dark:bg-neyx-orange" : "bg-gray-200 dark:bg-gray-600"
               }`}
             >
-              <TbHexagonLetterG className={`text-3xl ${isGenesis ? "text-white" : "text-neyx-orange"}`}/>
+              <TbHexagonLetterG className={`text-3xl ${isGenesis ? "text-white" : "text-neyx-orange"}`} />
             </div>
-            <div className={`flex-grow p-4 rounded-lg shadow ${ isGenesis ? "bg-neyx-orange" : "bg-gray-200 dark:bg-gray-800"}`}>
+            <div className={`flex-grow p-4 rounded-lg shadow ${isGenesis ? "bg-neyx-orange" : "bg-gray-200 dark:bg-gray-800"}`}>
               <p className={isGenesis ? "text-white" : ""}>
                 <strong>Genesis Address:</strong> {isGenesis ? "Yes" : "No"}
               </p>
@@ -133,9 +137,9 @@ const TokenDiscovery: React.FC = () => {
         )}
 
         {neyxtBalance !== null && (
-          <div className="flex gap-4 items-stretch">
+          <div className="flex gap-4 items-stretch ">
             <div className="flex justify-center items-center w-20 rounded-lg shadow bg-neyx-orange dark:bg-neyx-orange">
-            <img src={neyxtLogo} alt="NEYXT Logo" className="w-8 h-8" />
+              <img src={neyxtLogo} alt="NEYXT Logo" className="w-8 h-8" />
             </div>
             <div className="flex-grow p-4 rounded-lg shadow bg-gray-200 dark:bg-gray-800">
               <p>
@@ -146,7 +150,7 @@ const TokenDiscovery: React.FC = () => {
         )}
 
         {ethBalance !== null && (
-          <div className="flex gap-4 items-stretch">
+          <div className="flex gap-4 items-stretch ">
             <div className="flex justify-center items-center w-20 rounded-lg shadow bg-blue-500">
               <FaEthereum className="text-white text-3xl" />
             </div>
