@@ -8,6 +8,18 @@
   box-sizing: border-box;
 }
 
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Ensure no scrollbars appear */
+}
+
+iframe {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
 body {
   font-family: Arial, sans-serif;
 }

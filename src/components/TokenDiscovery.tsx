@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 
 import logo from "../assets/NEYX_LOGO_TEXT.svg";
 import { TbHexagonLetterG } from "react-icons/tb";
 import { FaEthereum, FaSpinner } from "react-icons/fa";
+// import { IoIosArrowBack } from "react-icons/io";
 import neyxtLogo from "../assets/NEYX_White_Transparnt.svg";
 
 // Hardcoded genesis addresses
@@ -31,6 +32,14 @@ const ERC20_ABI = [
 ];
 
 const TokenDiscovery: React.FC = () => {
+
+  // Apply dark mode by default
+  useEffect(() => {
+    document.documentElement.classList.add("dark"); // Add 'dark' class to <html>
+    localStorage.setItem("theme", "dark"); // Save preference to local storage
+  }, []);
+
+  
   const [address, setAddress] = useState<string>("");
   const [isGenesis, setIsGenesis] = useState<boolean | null>(null);
   const [neyxtBalance, setNeyxtBalance] = useState<string | null>(null);
@@ -85,13 +94,24 @@ const TokenDiscovery: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col items-center p-6">
+       {/* Back Button */}
+      {/* <div className="w-full flex justify-start mb-4">
+        <button
+          onClick={() => window.history.back()} // Navigate to the previous page
+          className="flex items-center justify-center w-10 h-10 bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-full transition shadow"
+        >
+          <IoIosArrowBack className="text-2xl" />
+        </button>
+      </div> */}
       {/* Header */}
       <div className="mb-8 w-full max-w-md text-center">
+      <a href="https://neyx.io" target="_blank" rel="noopener noreferrer">
         <img
           src={logo}
           alt="NEYXT Logo"
           className="w-full max-w-md mx-auto"
         />
+        </a>
         <h1 className="text-2xl font-bold mt-4 text-gray-800 dark:text-gray-300">
           Token Discovery
         </h1>
