@@ -4,7 +4,8 @@ import { ethers } from "ethers";
 import logo from "../assets/NEYX_LOGO_TEXT.svg";
 import { TbHexagonLetterG, TbPlugConnected } from "react-icons/tb";
 import { FaEthereum, FaSpinner } from "react-icons/fa";
-import { PiPlugsConnectedDuotone } from "react-icons/pi"; // Add the connected plug icon
+import { PiPlugsConnectedDuotone } from "react-icons/pi";
+import { FaSun, FaMoon } from "react-icons/fa";
 // import { IoIosArrowBack } from "react-icons/io";
 import neyxtLogo from "../assets/NEYX_White_Transparnt.svg";
 
@@ -34,14 +35,24 @@ const ERC20_ABI = [
 
 const TokenDiscovery: React.FC = () => {
 
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem("theme") === "dark";
+  });
+
   // Apply dark mode by default
   useEffect(() => {
-    document.documentElement.classList.add("dark"); // Add 'dark' class to <html>
-    localStorage.setItem("theme", "dark"); // Save preference to local storage
-  }, []);
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
 
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [address, setAddress] = useState<string>("");
   const [isGenesis, setIsGenesis] = useState<boolean | null>(null);
   const [neyxtBalance, setNeyxtBalance] = useState<string | null>(null);
   const [ethBalance, setEthBalance] = useState<string | null>(null);
@@ -67,41 +78,66 @@ const TokenDiscovery: React.FC = () => {
     return parseFloat(ethers.formatEther(balance)).toFixed(4);
   };
 
-  const handleCheck = async () => {
+  const handleCheck = async (inputAddress: string) => {
     setError(null);
     setIsGenesis(null);
     setNeyxtBalance(null);
     setEthBalance(null);
     setLoading(true); // Start loading
-
-    if (!ethers.isAddress(address)) {
+  
+    if (!ethers.isAddress(inputAddress)) {
       setError("Invalid Ethereum address");
       setLoading(false); // Stop loading
       return;
     }
-
+  
     try {
-      setIsGenesis(checkGenesis(address));
-      const [neyxt, eth] = await Promise.all([fetchNEYXTBalance(address), fetchETHBalance(address)]);
+      // Fetch all data in parallel and set loading to false after all results are fetched
+      const [neyxt, eth, isGenesis] = await Promise.all([
+        fetchNEYXTBalance(inputAddress),
+        fetchETHBalance(inputAddress),
+        Promise.resolve(checkGenesis(inputAddress)), // Wrap synchronous call in a promise for consistency
+      ]);
+  
       setNeyxtBalance(neyxt);
       setEthBalance(eth);
+      setIsGenesis(isGenesis);
     } catch (err) {
       console.error(err);
       setError("Failed to fetch balances.");
     } finally {
-      setLoading(false); // Stop loading
+      setLoading(false); // Stop loading only after all results are ready
     }
   };
 
+  // Helper function to truncate wallet address
+  const truncateAddress = (address: string) =>
+    `${address.slice(0, 6)}...${address.slice(-4)}`;
+
   const connectWallet = async () => {
+    if (walletAddress) {
+      // Disconnect wallet
+      setWalletAddress(null);
+      
+      setNeyxtBalance(null);
+      setEthBalance(null);
+      setIsGenesis(null);
+      setError(null);
+      return;
+    }
+  
     try {
       if (!window.ethereum) {
         throw new Error("MetaMask is not installed");
       }
-
+  
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      setWalletAddress(accounts[0]);
-      setAddress(accounts[0]);
+      const wallet = accounts[0];
+      setWalletAddress(wallet);
+
+  
+      // Call handleCheck with the wallet address
+      handleCheck(wallet);
     } catch (err) {
       console.error(err);
       setError((err as Error).message || "Failed to connect wallet");
@@ -133,40 +169,26 @@ const TokenDiscovery: React.FC = () => {
         </h1>
       </div>
 
-      {/* Wallet Connection Section */}
+      {/* Wallet Connection Button */}
       <div className="mb-6">
-        {walletAddress ? (
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-            {/* Connected State: Wallet Address with Icon */}
-            <PiPlugsConnectedDuotone className="text-neyx-orange text-xl" />
-            <span>{walletAddress}</span>
-          </div>
-        ) : (
-          <button
-            onClick={connectWallet}
-            className="flex items-center gap-2 bg-blue-500 text-white py-2 px-4 rounded-md shadow hover:bg-blue-600 transition"
-          >
-            <TbPlugConnected className="text-white text-xl" />
-            Connect Wallet
-          </button>
-        )}
-      </div>
-
-      {/* Input Section */}
-      <div className="w-full max-w-md bg-gray-200 dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-        <input
-          type="text"
-          className="w-full p-3 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-          placeholder="Enter Ethereum address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
         <button
-          onClick={handleCheck}
+          onClick={connectWallet}
           disabled={loading}
-          className="w-full bg-neyx-orange hover:bg-orange-300 text-white py-2 rounded-md transition flex items-center justify-center gap-2"
+          className="flex items-center gap-2 bg-neyx-orange text-white py-2 px-4 rounded-md shadow hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? <FaSpinner className="animate-spin" /> : "Check Address"}
+          {loading ? (
+            <FaSpinner className="animate-spin text-xl" />
+          ) : walletAddress ? (
+            <>
+              <PiPlugsConnectedDuotone className="text-white text-xl" />
+              {truncateAddress(walletAddress)}
+            </>
+          ) : (
+            <>
+              <TbPlugConnected className="text-white text-xl" />
+              Connect Wallet
+            </>
+          )}
         </button>
       </div>
 
@@ -216,6 +238,20 @@ const TokenDiscovery: React.FC = () => {
           </div>
         )}
       </div>
+
+         {/* Dark Mode Toggle Button */}
+         <br></br>
+         <button
+            onClick={toggleDarkMode}
+            className="p-2 rounded-full hover:bg-gray-700 transition"
+          >
+            {isDarkMode ? (
+              <FaSun className="text-neyx-orange text-2xl" />
+            ) : (
+              <FaMoon className="text-neyx-orange text-2xl" />
+            )}
+          </button>
+
     </div>
   );
 };
