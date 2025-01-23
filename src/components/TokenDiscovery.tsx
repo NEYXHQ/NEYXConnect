@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
 
 import logo from "../assets/NEYX_LOGO_TEXT.svg";
-import { TbHexagonLetterG } from "react-icons/tb";
+import { TbHexagonLetterG, TbPlugConnected } from "react-icons/tb";
 import { FaEthereum, FaSpinner } from "react-icons/fa";
+import { PiPlugsConnectedDuotone } from "react-icons/pi"; // Add the connected plug icon
 // import { IoIosArrowBack } from "react-icons/io";
 import neyxtLogo from "../assets/NEYX_White_Transparnt.svg";
 
@@ -109,7 +110,7 @@ const TokenDiscovery: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col items-center p-6">
-       {/* Back Button */}
+      {/* Back Button */}
       {/* <div className="w-full flex justify-start mb-4">
         <button
           onClick={() => window.history.back()} // Navigate to the previous page
@@ -120,16 +121,35 @@ const TokenDiscovery: React.FC = () => {
       </div> */}
       {/* Header */}
       <div className="mb-8 w-full max-w-md text-center">
-      <a href="https://neyx.io" target="_blank" rel="noopener noreferrer">
-        <img
-          src={logo}
-          alt="NEYXT Logo "
-          className="w-full max-w-md mx-auto"
-        />
+        <a href="https://neyx.io" target="_blank" rel="noopener noreferrer">
+          <img
+            src={logo}
+            alt="NEYXT Logo "
+            className="w-full max-w-md mx-auto"
+          />
         </a>
         <h1 className="text-2xl font-bold mt-4 text-gray-800 dark:text-gray-300">
           Token Discovery
         </h1>
+      </div>
+
+      {/* Wallet Connection Section */}
+      <div className="mb-6">
+        {walletAddress ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            {/* Connected State: Wallet Address with Icon */}
+            <PiPlugsConnectedDuotone className="text-neyx-orange text-xl" />
+            <span>{walletAddress}</span>
+          </div>
+        ) : (
+          <button
+            onClick={connectWallet}
+            className="flex items-center gap-2 bg-blue-500 text-white py-2 px-4 rounded-md shadow hover:bg-blue-600 transition"
+          >
+            <TbPlugConnected className="text-white text-xl" />
+            Connect Wallet
+          </button>
+        )}
       </div>
 
       {/* Input Section */}
@@ -157,9 +177,8 @@ const TokenDiscovery: React.FC = () => {
         {isGenesis !== null && (
           <div className="flex gap-4 items-stretch ">
             <div
-              className={`flex justify-center items-center w-20 rounded-lg shadow ${
-                isGenesis ? "bg-neyx-orange dark:bg-neyx-orange" : "bg-gray-200 dark:bg-gray-600"
-              }`}
+              className={`flex justify-center items-center w-20 rounded-lg shadow ${isGenesis ? "bg-neyx-orange dark:bg-neyx-orange" : "bg-gray-200 dark:bg-gray-600"
+                }`}
             >
               <TbHexagonLetterG className={`text-3xl ${isGenesis ? "text-white" : "text-neyx-orange"}`} />
             </div>
