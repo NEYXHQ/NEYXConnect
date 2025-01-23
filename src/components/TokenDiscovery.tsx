@@ -108,7 +108,7 @@ const TokenDiscovery: React.FC = () => {
       <a href="https://neyx.io" target="_blank" rel="noopener noreferrer">
         <img
           src={logo}
-          alt="NEYXT Logo"
+          alt="NEYXT Logo "
           className="w-full max-w-md mx-auto"
         />
         </a>
