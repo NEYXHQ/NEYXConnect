@@ -39,7 +39,7 @@ const TokenDiscovery: React.FC = () => {
     localStorage.setItem("theme", "dark"); // Save preference to local storage
   }, []);
 
-  
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [address, setAddress] = useState<string>("");
   const [isGenesis, setIsGenesis] = useState<boolean | null>(null);
   const [neyxtBalance, setNeyxtBalance] = useState<string | null>(null);
@@ -89,6 +89,21 @@ const TokenDiscovery: React.FC = () => {
       setError("Failed to fetch balances.");
     } finally {
       setLoading(false); // Stop loading
+    }
+  };
+
+  const connectWallet = async () => {
+    try {
+      if (!window.ethereum) {
+        throw new Error("MetaMask is not installed");
+      }
+
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      setWalletAddress(accounts[0]);
+      setAddress(accounts[0]);
+    } catch (err) {
+      console.error(err);
+      setError((err as Error).message || "Failed to connect wallet");
     }
   };
 
