@@ -9,6 +9,7 @@ import { FaSun, FaMoon } from "react-icons/fa";
 // import { IoIosArrowBack } from "react-icons/io";
 import neyxtLogo from "../assets/NEYX_White_Transparnt.svg";
 
+
 // Hardcoded genesis addresses
 const genesisAddresses = new Set<string>([
   "0x1134Bb07cb7F35946E7e02f58cA7fcC64698B59b",
@@ -81,6 +82,8 @@ const TokenDiscovery: React.FC = () => {
   const NETWORK = "sepolia"; // or "goerli" for testnet
   const provider = new ethers.JsonRpcProvider(`https://${NETWORK}.infura.io/v3/${INFURA_API_KEY}`);
 
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
+
   const [vestingWalletAddress, setVestingWalletAddress] = useState<string | null>(null);
   const [vestingBalance, setVestingBalance] = useState<string | null>(null);
   const [availableToWithdraw, setAvailableToWithdraw] = useState<string | null>(null);
@@ -100,7 +103,7 @@ const TokenDiscovery: React.FC = () => {
     return parseFloat(ethers.formatEther(balance)).toFixed(4);
   };
 
-  const handleCheck = async (inputAddress: string) => {
+  const FetchWalletBalances = async (inputAddress: string) => {
     setError(null);
     setIsGenesis(null);
     setNeyxtBalance(null);
@@ -157,8 +160,6 @@ const TokenDiscovery: React.FC = () => {
       const currentTimestamp = Math.floor(Date.now() / 1000); // Current timestamp in seconds
       const vestedNEYXT = await contract.vestedAmount(NEYXT_TOKEN_ADDRESS, currentTimestamp);
       
-
-
       // Update state
       setVestingWalletAddress(VESTING_WALLET_ADDRESS);
       setAvailableToWithdraw(formatBalance(releasableNEYXT));// Total tokens that can be withdrawn
@@ -171,11 +172,32 @@ const TokenDiscovery: React.FC = () => {
     }
   };
 
+  const withdrawNEYXT = async () => {
+    try {
+      if (!vestingWalletAddress) return;
+
+      const contract = new ethers.Contract(vestingWalletAddress, VESTING_WALLET_ABI, signer);
+  
+      const tx = await contract.release(NEYXT_TOKEN_ADDRESS); // Withdraw NEYXT tokens
+      await tx.wait();
+  
+      alert("NEYXT tokens withdrawn successfully!");
+      fetchVestingWalletData(walletAddress!); // Refresh data
+    } catch (err) {
+      console.error("Error withdrawing NEYXT tokens:", err);
+      alert("Failed to withdraw NEYXT tokens.");
+    }
+  };
+
   // Helper function to truncate wallet address
   const truncateAddress = (address: string) =>
     `${address.slice(0, 6)}...${address.slice(-4)}`;
 
+  //
+  // WALLET CONNECTION
+  //
   const connectWallet = async () => {
+    
     if (walletAddress) {
       // Disconnect wallet
       setWalletAddress(null);
@@ -192,13 +214,20 @@ const TokenDiscovery: React.FC = () => {
         throw new Error("MetaMask is not installed");
       }
 
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+       // Use ethers.BrowserProvider for signing transactions
+      const browserProvider = new ethers.BrowserProvider(window.ethereum);
+      const metamaskSigner = await browserProvider.getSigner()
+      setSigner(metamaskSigner); // Get signer
+      const accounts = await browserProvider.send("eth_requestAccounts", []); // Request accounts
       const wallet = accounts[0];
+
       setWalletAddress(wallet);
+
+      console.log("Connected wallet:", wallet);
 
 
       // Call data with the wallet address
-      handleCheck(wallet);
+      FetchWalletBalances(wallet);
       fetchVestingWalletData(wallet);
     } catch (err) {
       console.error(err);
@@ -260,7 +289,7 @@ const TokenDiscovery: React.FC = () => {
       <div className="mt-8 w-full max-w-md space-y-4">
         {error && <p className="text-red-500 text-center">{error}</p>}
 
-        {isGenesis !== null && (
+        {/* {isGenesis !== null && (
           <div className="flex gap-4 items-stretch ">
             <div
               className={`flex justify-center items-center w-20 rounded-lg shadow ${isGenesis ? "bg-neyx-orange dark:bg-neyx-orange" : "bg-gray-200 dark:bg-gray-600"
@@ -273,6 +302,36 @@ const TokenDiscovery: React.FC = () => {
                 <strong>Genesis Address:</strong> {isGenesis ? "Yes" : "No"}
               </p>
             </div>
+          </div>
+        )} */}
+
+        {vestingWalletAddress && (
+          <div className="mt-8 w-full max-w-md space-y-4">
+            <div className="flex gap-4 items-stretch">
+              <div className="flex-grow p-4 rounded-lg shadow bg-gray-200 dark:bg-gray-800">
+                {/* <p>
+                  <strong>Vesting Contract Address:</strong> {vestingWalletAddress}
+                </p> */}
+                <p>
+                  <strong>Vesting Balance:</strong> {vestingBalance} NEYXT
+                </p>
+                <p>
+                  <strong>Available to Withdraw:</strong> {availableToWithdraw} NEYXT
+                </p>
+              </div>
+            
+              <div className="flex gap-4">
+                <button
+                  onClick={withdrawNEYXT}
+                  className="flex justify-center items-center w-20 rounded-lg shadow bg-neyx-orange dark:bg-neyx-orange"
+                >
+                  Withdraw Available
+                </button>
+                </div>
+            
+            </div>
+            
+
           </div>
         )}
 
@@ -289,24 +348,7 @@ const TokenDiscovery: React.FC = () => {
           </div>
         )}
 
-        {vestingWalletAddress && (
-          <div className="mt-8 w-full max-w-md space-y-4">
-            <h2 className="text-lg font-semibold">Vesting Wallet Details</h2>
-            <div className="flex gap-4 items-stretch">
-              <div className="flex-grow p-4 rounded-lg shadow bg-gray-200 dark:bg-gray-800">
-                <p>
-                  <strong>Vesting Wallet Address:</strong> {vestingWalletAddress}
-                </p>
-                <p>
-                  <strong>Vesting Balance:</strong> {vestingBalance} NEYXT
-                </p>
-                <p>
-                  <strong>Available to Withdraw:</strong> {availableToWithdraw} NEYXT
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        
 
         {ethBalance !== null && (
           <div className="flex gap-4 items-stretch ">
