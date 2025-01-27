@@ -28,10 +28,28 @@ const genesisAddresses = new Set<string>([
 ]);
 
 // NEYXT token details
-const NEYXT_TOKEN_ADDRESS = "0x86b8B002ff72Be60C63E9Ae716348EDC1771F52e";
+// MAINNET
+// const NEYXT_TOKEN_ADDRESS = "0x86b8B002ff72Be60C63E9Ae716348EDC1771F52e";
+// SEPOLIA
+const NEYXT_TOKEN_ADDRESS = "0xf55eb9Eeb340d047AE1373c963fF2370a12a1e86";
+
 const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
 ];
+
+const VESTING_WALLET_ABI = [
+  "function owner() view returns (address)",
+  "function beneficiary() view returns (address)",
+  "function releasable(address token) view returns (uint256)", // Releasable ERC-20 tokens
+  "function vestedAmount(address token, uint64 timestamp) view returns (uint256)", // Vested ERC-20 tokens
+  "function release(address token)",
+  "function balance() view returns (uint256)",
+];
+
+function formatBalance(balance: string | number | bigint): string {
+  const fullTokens = BigInt(balance) / BigInt(1e18); // Convert from Wei to full tokens
+  return new Intl.NumberFormat("en-US").format(fullTokens); // Format with thousands separators
+}
 
 const TokenDiscovery: React.FC = () => {
 
@@ -60,8 +78,12 @@ const TokenDiscovery: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false); // New loading state
 
   const INFURA_API_KEY = import.meta.env.VITE_INFURA_API_KEY;
-  const NETWORK = "mainnet"; // or "goerli" for testnet
+  const NETWORK = "sepolia"; // or "goerli" for testnet
   const provider = new ethers.JsonRpcProvider(`https://${NETWORK}.infura.io/v3/${INFURA_API_KEY}`);
+
+  const [vestingWalletAddress, setVestingWalletAddress] = useState<string | null>(null);
+  const [vestingBalance, setVestingBalance] = useState<string | null>(null);
+  const [availableToWithdraw, setAvailableToWithdraw] = useState<string | null>(null);
 
   const checkGenesis = (inputAddress: string) => genesisAddresses.has(inputAddress);
 
@@ -84,13 +106,13 @@ const TokenDiscovery: React.FC = () => {
     setNeyxtBalance(null);
     setEthBalance(null);
     setLoading(true); // Start loading
-  
+
     if (!ethers.isAddress(inputAddress)) {
       setError("Invalid Ethereum address");
       setLoading(false); // Stop loading
       return;
     }
-  
+
     try {
       // Fetch all data in parallel and set loading to false after all results are fetched
       const [neyxt, eth, isGenesis] = await Promise.all([
@@ -98,7 +120,7 @@ const TokenDiscovery: React.FC = () => {
         fetchETHBalance(inputAddress),
         Promise.resolve(checkGenesis(inputAddress)), // Wrap synchronous call in a promise for consistency
       ]);
-  
+
       setNeyxtBalance(neyxt);
       setEthBalance(eth);
       setIsGenesis(isGenesis);
@@ -110,6 +132,45 @@ const TokenDiscovery: React.FC = () => {
     }
   };
 
+  const fetchVestingWalletData = async (walletAddress: string) => {
+    try {
+      // Replace this with your deployed VestingWallet address
+      const VESTING_WALLET_ADDRESS = "0xfa34873c3c4839da50bd34441a6463d905fe9d3e";
+
+      const contract = new ethers.Contract(
+        VESTING_WALLET_ADDRESS,
+        VESTING_WALLET_ABI,
+        provider
+      );
+
+      // Check if the connected wallet is the beneficiary
+      const beneficiary = await contract.owner();
+      if (beneficiary.toLowerCase() !== walletAddress.toLowerCase()) {
+        setVestingWalletAddress(null); // Not a beneficiary
+        return;
+      }
+
+      // Fetch releasable ERC-20 tokens (NEYXT in this case)
+      const releasableNEYXT = await contract.releasable(NEYXT_TOKEN_ADDRESS);
+
+      // Fetch vested amount of NEYXT at the current timestamp
+      const currentTimestamp = Math.floor(Date.now() / 1000); // Current timestamp in seconds
+      const vestedNEYXT = await contract.vestedAmount(NEYXT_TOKEN_ADDRESS, currentTimestamp);
+      
+
+
+      // Update state
+      setVestingWalletAddress(VESTING_WALLET_ADDRESS);
+      setAvailableToWithdraw(formatBalance(releasableNEYXT));// Total tokens that can be withdrawn
+      setVestingBalance(formatBalance(vestedNEYXT));
+    } catch (err) {
+      console.error("Error fetching vesting wallet data:", err);
+      setVestingWalletAddress(null);
+      setVestingBalance(null);
+      setAvailableToWithdraw(null);
+    }
+  };
+
   // Helper function to truncate wallet address
   const truncateAddress = (address: string) =>
     `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -118,31 +179,34 @@ const TokenDiscovery: React.FC = () => {
     if (walletAddress) {
       // Disconnect wallet
       setWalletAddress(null);
-      
+      setVestingWalletAddress(null);
       setNeyxtBalance(null);
       setEthBalance(null);
       setIsGenesis(null);
       setError(null);
       return;
     }
-  
+
     try {
       if (!window.ethereum) {
         throw new Error("MetaMask is not installed");
       }
-  
+
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       const wallet = accounts[0];
       setWalletAddress(wallet);
 
-  
-      // Call handleCheck with the wallet address
+
+      // Call data with the wallet address
       handleCheck(wallet);
+      fetchVestingWalletData(wallet);
     } catch (err) {
       console.error(err);
       setError((err as Error).message || "Failed to connect wallet");
     }
   };
+
+
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col items-center p-6">
@@ -225,6 +289,25 @@ const TokenDiscovery: React.FC = () => {
           </div>
         )}
 
+        {vestingWalletAddress && (
+          <div className="mt-8 w-full max-w-md space-y-4">
+            <h2 className="text-lg font-semibold">Vesting Wallet Details</h2>
+            <div className="flex gap-4 items-stretch">
+              <div className="flex-grow p-4 rounded-lg shadow bg-gray-200 dark:bg-gray-800">
+                <p>
+                  <strong>Vesting Wallet Address:</strong> {vestingWalletAddress}
+                </p>
+                <p>
+                  <strong>Vesting Balance:</strong> {vestingBalance} NEYXT
+                </p>
+                <p>
+                  <strong>Available to Withdraw:</strong> {availableToWithdraw} NEYXT
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {ethBalance !== null && (
           <div className="flex gap-4 items-stretch ">
             <div className="flex justify-center items-center w-20 rounded-lg shadow bg-blue-500">
@@ -239,18 +322,18 @@ const TokenDiscovery: React.FC = () => {
         )}
       </div>
 
-         {/* Dark Mode Toggle Button */}
-         <br></br>
-         <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-full hover:bg-gray-700 transition"
-          >
-            {isDarkMode ? (
-              <FaSun className="text-neyx-orange text-2xl" />
-            ) : (
-              <FaMoon className="text-neyx-orange text-2xl" />
-            )}
-          </button>
+      {/* Dark Mode Toggle Button */}
+      <br></br>
+      <button
+        onClick={toggleDarkMode}
+        className="p-2 rounded-full hover:bg-gray-700 transition"
+      >
+        {isDarkMode ? (
+          <FaSun className="text-neyx-orange text-2xl" />
+        ) : (
+          <FaMoon className="text-neyx-orange text-2xl" />
+        )}
+      </button>
 
     </div>
   );
