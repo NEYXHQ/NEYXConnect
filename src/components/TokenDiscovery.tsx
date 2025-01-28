@@ -18,22 +18,6 @@ const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
 ];
 
-// nameOrSignature:
-//       | "duration"
-//       | "end"
-//       | "owner"
-//       | "releasable(address)"
-//       | "releasable()"
-//       | "release(address)"
-//       | "release()"
-//       | "released()"
-//       | "released(address)"
-//       | "renounceOwnership"
-//       | "start"
-//       | "transferOwnership"
-//       | "vestedAmount(uint64)"
-//       | "vestedAmount(address,uint64)"
-
 const VESTING_WALLET_ABI = [
   "function owner() view returns (address)",
   "function releasable(address token) view returns (uint256)", // Releasable ERC-20 tokens
@@ -45,10 +29,20 @@ const VESTING_WALLET_ABI = [
   "function start() view returns (uint64)",
 ];
 
+// Beneficiary-to-Vesting-Wallet Mapping
+const vestingMapping: { [beneficiaryAddress: string]: string } = {
+  "0xYourBeneficiaryAddress2": "0xVestingContractAddress2",
+  "0xcdf03a01ecb7fea6f1235eee30b01d2333d99e69": "0xfa34873c3c4839da50bd34441a6463d905fe9d3e", //EthDev2
+  "0xYourBeneficiaryAddress3": "0xVestingContractAddress3",
+};
+
 function formatBalance(balance: string | number | bigint): string {
   const fullTokens = BigInt(balance) / BigInt(1e18); // Convert from Wei to full tokens
   return new Intl.NumberFormat("en-US").format(fullTokens); // Format with thousands separators
 }
+
+const truncateAddress = (address: string) =>
+  `${address.slice(0, 6)}...${address.slice(-4)}`;
 
 const TokenDiscovery: React.FC = () => {
 
@@ -75,14 +69,8 @@ const TokenDiscovery: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false); // New loading state
 
-  // const INFURA_API_KEY = import.meta.env.VITE_INFURA_API_KEY;
-  // const NETWORK = "sepolia"; // or "goerli" for testnet
-  // const provider = new ethers.JsonRpcProvider(`https://${NETWORK}.infura.io/v3/${INFURA_API_KEY}`);
   if (!window.ethereum) throw new Error("MetaMask is not installed. Please install MetaMask.");
-
-  // Use ethers.BrowserProvider for signing transactions
   const provider = new ethers.BrowserProvider(window.ethereum);
-
   const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
 
   const [vestingWalletAddress, setVestingWalletAddress] = useState<string | null>(null);
@@ -129,14 +117,17 @@ const TokenDiscovery: React.FC = () => {
     } catch (err) {
       console.error(err);
       setError("Failed to fetch balances.");
-    } finally {
-      setLoading(false); // Stop loading only after all results are ready
     }
   };
 
   const fetchVestingWalletData = async (walletAddress: string) => {
     try {
-      const VESTING_WALLET_ADDRESS = "0xfa34873c3c4839da50bd34441a6463d905fe9d3e";
+      const VESTING_WALLET_ADDRESS = vestingMapping[walletAddress.toLowerCase()];
+      if (!VESTING_WALLET_ADDRESS) {
+        console.log("No vesting wallet found for this address.");
+        setVestingWalletAddress(null);
+        return;
+      }
 
       const contract = new ethers.Contract(
         VESTING_WALLET_ADDRESS,
@@ -151,12 +142,6 @@ const TokenDiscovery: React.FC = () => {
         return;
       }
 
-      // // other relevant balances
-      // 
-      console.log("Fetching vesting contract data...");
-
-      
-
       // Fetch the total duration (in seconds)
       const duration = await contract.duration();
       const durationDays = Number(duration) / (60 * 60 * 24);
@@ -164,7 +149,6 @@ const TokenDiscovery: React.FC = () => {
       // Fetch the start time (UNIX timestamp)
       const start = await contract.start();
       const startDat = new Date(Number(start) * 1000).toLocaleString();
-      
 
       // Calculate remaining duration
       const currentTimestamp = Math.floor(Date.now() / 1000);
@@ -177,14 +161,10 @@ const TokenDiscovery: React.FC = () => {
 
       // Fetch & Calculate total initially vested tokens
       const neyxtContract = new ethers.Contract(NEYXT_TOKEN_ADDRESS, ERC20_ABI, provider);
-      const vestedNEYXT =await neyxtContract.balanceOf(VESTING_WALLET_ADDRESS);
+      const vestedNEYXT = await neyxtContract.balanceOf(VESTING_WALLET_ADDRESS);
 
       // Fetch releasable ERC-20 tokens (NEYXT in this case)
       const releasableNEYXT = await contract.releasable(NEYXT_TOKEN_ADDRESS);
-
-      // Fetch vested amount of NEYXT at the current timestamp
-      // const currentTimestamp = Math.floor(Date.now() / 1000); // Current timestamp in seconds
-
 
       // Update state
       setVestingWalletAddress(VESTING_WALLET_ADDRESS);
@@ -198,6 +178,9 @@ const TokenDiscovery: React.FC = () => {
       setVestingWalletAddress(null);
       setVestedBalance(null);
       setAvailableToWithdraw(null);
+      setStartDate(null);
+      setRemainingDurationInDays(null);
+      setDurationIndays(null);
     }
   };
 
@@ -218,10 +201,6 @@ const TokenDiscovery: React.FC = () => {
     }
   };
 
-  // Helper function to truncate wallet address
-  const truncateAddress = (address: string) =>
-    `${address.slice(0, 6)}...${address.slice(-4)}`;
-
   //
   // WALLET CONNECTION
   //
@@ -230,10 +209,15 @@ const TokenDiscovery: React.FC = () => {
     if (walletAddress) {
       // Disconnect wallet
       setWalletAddress(null);
-      setVestingWalletAddress(null);
       setNeyxtBalance(null);
       setEthBalance(null);
       setError(null);
+      setVestingWalletAddress(null);
+      setVestedBalance(null);
+      setAvailableToWithdraw(null);
+      setStartDate(null);
+      setRemainingDurationInDays(null);
+      setDurationIndays(null);
       return;
     }
 
@@ -241,6 +225,8 @@ const TokenDiscovery: React.FC = () => {
       if (!window.ethereum) {
         throw new Error("MetaMask is not installed");
       }
+
+      setLoading(true); 
 
       // Use ethers.BrowserProvider for signing transactions
       const browserProvider = new ethers.BrowserProvider(window.ethereum);
@@ -251,15 +237,14 @@ const TokenDiscovery: React.FC = () => {
 
       setWalletAddress(wallet);
 
-      console.log("Connected wallet:", wallet);
-
-
       // Call data with the wallet address
-      FetchWalletBalances(wallet);
-      fetchVestingWalletData(wallet);
+      await FetchWalletBalances(wallet);
+      await fetchVestingWalletData(wallet);
     } catch (err) {
       console.error(err);
       setError((err as Error).message || "Failed to connect wallet");
+    } finally {
+      setLoading(false); // Stop loading after all operations are complete
     }
   };
 
@@ -304,76 +289,92 @@ const TokenDiscovery: React.FC = () => {
       </div>
 
       {/* Results Section */}
-      <div className="mt-8 w-full max-w-md space-y-4">
+      <div className="mt-4 w-full max-w-md space-y-4">
         {error && <p className="text-red-500 text-center">{error}</p>}
 
         {vestingWalletAddress && (
-          <div className="mt-8 w-full max-w-md space-y-4">
-            <div className="flex gap-4 items-stretch">
-              <div className="flex-grow p-4 rounded-lg shadow bg-gray-200 dark:bg-gray-800">
-                <p>
-                  <strong>Actual Vested Balance:</strong> {vestedBalance} NEYXT
-                </p>
-                <p>
-                  <strong>Start Date:</strong> {startDate}
-                </p>
-                <p>
-                  <strong>Available to Withdraw:</strong> {availableToWithdraw} NEYXT
-                </p>
-                <p>
-                  <strong>Remaining days:</strong> {remainingDurationInDays} / {durationInDays} Days
-                </p>
-              </div>
+          <div className="mt-4 w-full max-w-md bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+              Vesting Wallet Details
+            </h2>
 
-              <div className="flex gap-4">
-                <button
-                  onClick={withdrawNEYXT}
-                  className="flex justify-center items-center w-20 rounded-lg shadow bg-neyx-orange dark:bg-neyx-orange"
-                >
-                  Withdraw Available
-                </button>
-              </div>
-
+            {/* Vested Balance */}
+            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+              <span className="text-gray-600 dark:text-gray-400">Vested Balance:</span>
+              <span className="font-medium text-gray-800 dark:text-gray-100">{vestedBalance} NEYXT</span>
             </div>
 
-
-          </div>
-        )}
-
-        {neyxtBalance !== null && (
-          <div className="flex gap-4 items-stretch ">
-            <div className="flex justify-center items-center w-20 rounded-lg shadow bg-neyx-orange dark:bg-neyx-orange">
-              <img src={neyxtLogo} alt="NEYXT Logo" className="w-8 h-8" />
+            {/* Start Date */}
+            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+              <span className="text-gray-600 dark:text-gray-400">Start Date:</span>
+              <span className="font-medium text-gray-800 dark:text-gray-100">{startDate}</span>
             </div>
-            <div className="flex-grow p-4 rounded-lg shadow bg-gray-200 dark:bg-gray-800">
-              <p>
-                <strong>NEYXT Balance:</strong> <span className="text-neyx-orange">{neyxtBalance}</span>
-              </p>
+
+            {/* Remaining Days */}
+            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+              <span className="text-gray-600 dark:text-gray-400">Remaining Days:</span>
+              <span className="font-medium text-gray-800 dark:text-gray-100">
+                {remainingDurationInDays} / {durationInDays} Days
+              </span>
+            </div>
+
+            {/* Available to Withdraw */}
+            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+              <span className="text-gray-600 dark:text-gray-400">Available to Withdraw:</span>
+              <span className="font-medium text-green-600 dark:text-green-400">{availableToWithdraw} NEYXT</span>
+            </div>
+
+            {/* Withdraw Button */}
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={withdrawNEYXT}
+                className="bg-neyx-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
+              >
+                Withdraw Available
+              </button>
             </div>
           </div>
         )}
 
+{neyxtBalance !== null && (
+  <div className="flex items-center bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 mb-4">
+    {/* Icon */}
+    <div className="flex items-center justify-center w-12 h-12 bg-neyx-orange rounded-full shadow">
+      <img src={neyxtLogo} alt="NEYXT Logo" className="w-6 h-6" />
+    </div>
 
+    {/* Text Content */}
+    <div className="flex-1 flex justify-between items-center ml-4">
+      <p className="text-sm text-gray-600 dark:text-gray-400">NEYXT Balance</p>
+      <p className="text-lg font-semibold text-neyx-orange text-right">
+        {neyxtBalance}
+      </p>
+    </div>
+  </div>
+)}
 
-        {ethBalance !== null && (
-          <div className="flex gap-4 items-stretch ">
-            <div className="flex justify-center items-center w-20 rounded-lg shadow bg-blue-500">
-              <FaEthereum className="text-white text-3xl" />
-            </div>
-            <div className="flex-grow p-4 rounded-lg shadow bg-gray-200 dark:bg-gray-800">
-              <p>
-                <strong>ETH Balance:</strong> {ethBalance}
-              </p>
-            </div>
-          </div>
-        )}
+{ethBalance !== null && (
+  <div className="flex items-center bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
+    {/* Icon */}
+    <div className="flex items-center justify-center w-12 h-12 bg-blue-500 rounded-full shadow">
+      <FaEthereum className="text-white text-2xl" />
+    </div>
+
+    {/* Text Content */}
+    <div className="flex-1 flex justify-between items-center ml-4">
+      <p className="text-sm text-gray-600 dark:text-gray-400">ETH Balance</p>
+      <p className="text-lg font-semibold text-gray-800 dark:text-gray-100 text-right">
+        {ethBalance}
+      </p>
+    </div>
+  </div>
+)}
       </div>
 
       {/* Dark Mode Toggle Button */}
-      <br></br>
       <button
         onClick={toggleDarkMode}
-        className="p-2 rounded-full hover:bg-gray-700 transition"
+        className="p-2 mt-2 rounded-full hover:bg-gray-700 transition"
       >
         {isDarkMode ? (
           <FaSun className="text-neyx-orange text-2xl" />
