@@ -12,7 +12,7 @@ import neyxtLogo from "../assets/NEYX_White_Transparnt.svg";
 // MAINNET
 // const NEYXT_TOKEN_ADDRESS = "0x86b8B002ff72Be60C63E9Ae716348EDC1771F52e";
 // SEPOLIA
-const NEYXT_TOKEN_ADDRESS = "0xf55eb9Eeb340d047AE1373c963fF2370a12a1e86";
+const NEYXT_TOKEN_ADDRESS = import.meta.env.VITE_NEYXT_TOKEN_ADDRESS;
 
 const ERC20_ABI = [
   "function balanceOf(address account) view returns (uint256)",
@@ -29,12 +29,17 @@ const VESTING_WALLET_ABI = [
   "function start() view returns (uint64)",
 ];
 
-// Beneficiary-to-Vesting-Wallet Mapping
-const vestingMapping: { [beneficiaryAddress: string]: string } = {
-  "0xYourBeneficiaryAddress2": "0xVestingContractAddress2",
-  "0xcdf03a01ecb7fea6f1235eee30b01d2333d99e69": "0xfa34873c3c4839da50bd34441a6463d905fe9d3e", //EthDev2
-  "0xYourBeneficiaryAddress3": "0xVestingContractAddress3",
-};
+// Beneficiary-to-Vesting-Wallet Mapping - for SEPOLIA
+const vestingMapping: { [beneficiaryAddress: string]: string } = (() => {
+  try {
+    const encoded = import.meta.env.VITE_VESTING_MAPPING || "";
+    const decoded = atob(encoded); // Decode Base64
+    return JSON.parse(decoded); // Parse JSON
+  } catch (error) {
+    console.error("Error decoding VITE_VESTING_MAPPING:", error);
+    return {};
+  }
+})();
 
 function formatBalance(balance: string | number | bigint): string {
   const fullTokens = BigInt(balance) / BigInt(1e18); // Convert from Wei to full tokens
@@ -68,6 +73,7 @@ const TokenDiscovery: React.FC = () => {
   const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false); // New loading state
+  const [wrongNetwork, setWrongNetwork] = useState<boolean>(false);
 
   if (!window.ethereum) throw new Error("MetaMask is not installed. Please install MetaMask.");
   const provider = new ethers.BrowserProvider(window.ethereum);
@@ -79,6 +85,9 @@ const TokenDiscovery: React.FC = () => {
   const [remainingDurationInDays, setRemainingDurationInDays] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [durationInDays, setDurationIndays] = useState<string | null>(null);
+
+  const [networkInfo, setNetworkInfo] = useState<{ name?: string; chainId?: number } | null>(null);
+  const [txStatus, setTxStatus] = useState<string | null>(null);
 
   const fetchNEYXTBalance = async (inputAddress: string) => {
     const contract = new ethers.Contract(NEYXT_TOKEN_ADDRESS, ERC20_ABI, provider);
@@ -188,16 +197,29 @@ const TokenDiscovery: React.FC = () => {
     try {
       if (!vestingWalletAddress) return;
 
+      setLoading(true);
+      setTxStatus("Waiting for transaction confirmation..."); // Show overlay
+
       const contract = new ethers.Contract(vestingWalletAddress, VESTING_WALLET_ABI, signer);
-
+      console.log("Withdrawing NEYXT tokens...");
+      setTxStatus("Transaction - Waiting for Metamask Approval...");
       const tx = await contract.release(NEYXT_TOKEN_ADDRESS); // Withdraw NEYXT tokens
+      console.log("Transaction sent, waiting for confirmation...");
+      setTxStatus("Transaction sent - Waiting for confirmation...");
       await tx.wait();
-
-      alert("NEYXT tokens withdrawn successfully!");
-      fetchVestingWalletData(walletAddress!); // Refresh data
+      setTxStatus("Transaction confirmed! Updating balances...");
+      // Refresh wallet balances and vesting data
+      if (walletAddress) {
+        await FetchWalletBalances(walletAddress);
+        await fetchVestingWalletData(walletAddress);
+      }
     } catch (err) {
       console.error("Error withdrawing NEYXT tokens:", err);
       alert("Failed to withdraw NEYXT tokens.");
+      setTxStatus("Transaction failed. Please try again.");
+    } finally {
+      setLoading(false); // Stop loading after the transaction is processed
+      setTimeout(() => setTxStatus(null), 1000); // Hide overlay after 2 seconds
     }
   };
 
@@ -226,16 +248,33 @@ const TokenDiscovery: React.FC = () => {
         throw new Error("MetaMask is not installed");
       }
 
-      setLoading(true); 
+      setLoading(true);
 
       // Use ethers.BrowserProvider for signing transactions
       const browserProvider = new ethers.BrowserProvider(window.ethereum);
       const metamaskSigner = await browserProvider.getSigner()
-      setSigner(metamaskSigner); // Get signer
+      setSigner(metamaskSigner);
+
       const accounts = await browserProvider.send("eth_requestAccounts", []); // Request accounts
       const wallet = accounts[0];
-
       setWalletAddress(wallet);
+
+      // Get the connected network
+      const network = await browserProvider.getNetwork();
+      console.log("Connected to network:", network.name, `(Chain ID: ${network.chainId})`);
+
+      // Store network info
+      setNetworkInfo({ name: network.name, chainId: Number(network.chainId) });
+
+      // Check if the user is on the correct network
+      if (Number(network.chainId) !== 11155111) {
+        setError("Please switch to the Sepolia network in MetaMask.");
+        setWrongNetwork(true);
+        return;
+      } else {
+        setError(null);
+        setWrongNetwork(false);
+      }
 
       // Call data with the wallet address
       await FetchWalletBalances(wallet);
@@ -248,7 +287,57 @@ const TokenDiscovery: React.FC = () => {
     }
   };
 
+  // Network selection issues
 
+  useEffect(() => {
+    if (!window.ethereum) return;
+
+    const handleNetworkChange = async () => {
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider);
+        const network = await provider.getNetwork();
+        console.log("Network changed to:", network.name, `(Chain ID: ${network.chainId})`);
+        setNetworkInfo({ name: network.name, chainId: Number(network.chainId) });
+
+        // If the user is on the wrong network, show a warning
+        if (Number(network.chainId) !== 11155111) {
+          setError("Please switch to the Sepolia network in MetaMask.");
+          setWrongNetwork(true);
+        } else {
+          setError(null);
+          setWrongNetwork(false);
+          // Reload data
+          if (walletAddress) {
+            await FetchWalletBalances(walletAddress);
+            await fetchVestingWalletData(walletAddress);
+          }
+        }
+      } catch (error) {
+        console.error("Error handling network change:", error);
+        setError("Failed to update after network change.");
+      } finally {
+        setLoading(false); // Stop loading after the data has been fetched
+      }
+    };
+
+    window.ethereum.on("chainChanged", handleNetworkChange);
+
+    return () => {
+      window.ethereum?.removeListener("chainChanged", handleNetworkChange);
+    };
+  }, [walletAddress]);
+
+  const switchNetwork = async () => {
+    if (!window.ethereum) return;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: ethers.toBeHex(11155111) }], // Sepolia Chain ID
+      });
+    } catch (error) {
+      console.error("Error switching network:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col items-center p-6">
@@ -264,6 +353,18 @@ const TokenDiscovery: React.FC = () => {
           Token Discovery
         </h1>
       </div>
+
+      {/* Transaction Status Overlay */}
+      {txStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center flex flex-col items-center">
+          <FaSpinner className="animate-spin text-5xl text-neyx-orange mb-4" />
+          <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+            {txStatus}
+          </p>
+        </div>
+      </div>
+      )}
 
       {/* Wallet Connection Button */}
       <div className="mb-6">
@@ -288,87 +389,107 @@ const TokenDiscovery: React.FC = () => {
         </button>
       </div>
 
+      {/* Switch network */}
+      {error && (
+        <div className="bg-red-200 text-red-800 p-3 rounded-md text-center">
+          {error}
+          {networkInfo?.chainId !== 11155111 && (
+            <button
+              onClick={switchNetwork}
+              className="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md mt-2"
+            >
+              Switch to Sepolia
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Results Section */}
       <div className="mt-4 w-full max-w-md space-y-4">
         {error && <p className="text-red-500 text-center">{error}</p>}
 
-        {vestingWalletAddress && (
-          <div className="mt-4 w-full max-w-md bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-              Vesting Wallet Details
-            </h2>
+        {/* Hide all if wrong Network */}
+        {!wrongNetwork && (
+          <>
+            {vestingWalletAddress && (
+              <div className="mt-4 w-full max-w-md bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+                  Vesting Wallet Details
+                </h2>
 
-            {/* Vested Balance */}
-            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-              <span className="text-gray-600 dark:text-gray-400">Vested Balance:</span>
-              <span className="font-medium text-gray-800 dark:text-gray-100">{vestedBalance} NEYXT</span>
-            </div>
+                {/* Vested Balance */}
+                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                  <span className="text-gray-600 dark:text-gray-400">Vested Balance:</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-100">{vestedBalance} NEYXT</span>
+                </div>
 
-            {/* Start Date */}
-            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-              <span className="text-gray-600 dark:text-gray-400">Start Date:</span>
-              <span className="font-medium text-gray-800 dark:text-gray-100">{startDate}</span>
-            </div>
+                {/* Start Date */}
+                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                  <span className="text-gray-600 dark:text-gray-400">Start Date:</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-100">{startDate}</span>
+                </div>
 
-            {/* Remaining Days */}
-            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-              <span className="text-gray-600 dark:text-gray-400">Remaining Days:</span>
-              <span className="font-medium text-gray-800 dark:text-gray-100">
-                {remainingDurationInDays} / {durationInDays} Days
-              </span>
-            </div>
+                {/* Remaining Days */}
+                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                  <span className="text-gray-600 dark:text-gray-400">Remaining Days:</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-100">
+                    {remainingDurationInDays} / {durationInDays} Days
+                  </span>
+                </div>
 
-            {/* Available to Withdraw */}
-            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-              <span className="text-gray-600 dark:text-gray-400">Available to Withdraw:</span>
-              <span className="font-medium text-green-600 dark:text-green-400">{availableToWithdraw} NEYXT</span>
-            </div>
+                {/* Available to Withdraw */}
+                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                  <span className="text-gray-600 dark:text-gray-400">Available to Withdraw:</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">{availableToWithdraw} NEYXT</span>
+                </div>
 
-            {/* Withdraw Button */}
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={withdrawNEYXT}
-                className="bg-neyx-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
-              >
-                Withdraw Available
-              </button>
-            </div>
-          </div>
+                {/* Withdraw Button */}
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={withdrawNEYXT}
+                    className="bg-neyx-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
+                  >
+                    Withdraw Available
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {neyxtBalance !== null && (
+              <div className="flex items-center bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 mb-4">
+                {/* Icon */}
+                <div className="flex items-center justify-center w-12 h-12 bg-neyx-orange rounded-full shadow">
+                  <img src={neyxtLogo} alt="NEYXT Logo" className="w-6 h-6" />
+                </div>
+
+                {/* Text Content */}
+                <div className="flex-1 flex justify-between items-center ml-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">NEYXT Balance</p>
+                  <p className="text-lg font-semibold text-neyx-orange text-right">
+                    {neyxtBalance}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {ethBalance !== null && (
+              <div className="flex items-center bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
+                {/* Icon */}
+                <div className="flex items-center justify-center w-12 h-12 bg-blue-500 rounded-full shadow">
+                  <FaEthereum className="text-white text-2xl" />
+                </div>
+
+                {/* Text Content */}
+                <div className="flex-1 flex justify-between items-center ml-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">ETH Balance</p>
+                  <p className="text-lg font-semibold text-gray-800 dark:text-gray-100 text-right">
+                    {ethBalance}
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
         )}
-
-{neyxtBalance !== null && (
-  <div className="flex items-center bg-white dark:bg-gray-800 shadow-md rounded-lg p-4 mb-4">
-    {/* Icon */}
-    <div className="flex items-center justify-center w-12 h-12 bg-neyx-orange rounded-full shadow">
-      <img src={neyxtLogo} alt="NEYXT Logo" className="w-6 h-6" />
-    </div>
-
-    {/* Text Content */}
-    <div className="flex-1 flex justify-between items-center ml-4">
-      <p className="text-sm text-gray-600 dark:text-gray-400">NEYXT Balance</p>
-      <p className="text-lg font-semibold text-neyx-orange text-right">
-        {neyxtBalance}
-      </p>
-    </div>
-  </div>
-)}
-
-{ethBalance !== null && (
-  <div className="flex items-center bg-white dark:bg-gray-800 shadow-md rounded-lg p-4">
-    {/* Icon */}
-    <div className="flex items-center justify-center w-12 h-12 bg-blue-500 rounded-full shadow">
-      <FaEthereum className="text-white text-2xl" />
-    </div>
-
-    {/* Text Content */}
-    <div className="flex-1 flex justify-between items-center ml-4">
-      <p className="text-sm text-gray-600 dark:text-gray-400">ETH Balance</p>
-      <p className="text-lg font-semibold text-gray-800 dark:text-gray-100 text-right">
-        {ethBalance}
-      </p>
-    </div>
-  </div>
-)}
       </div>
 
       {/* Dark Mode Toggle Button */}
