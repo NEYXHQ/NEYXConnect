@@ -68,6 +68,9 @@ const TokenDiscovery: React.FC = () => {
 
   const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
 
+  const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || "DEV"; // Default to DEV
+  const EXPECTED_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID) || 11155111; // Default to Sepolia
+
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [neyxtBalance, setNeyxtBalance] = useState<string | null>(null);
   const [ethBalance, setEthBalance] = useState<string | null>(null);
@@ -267,8 +270,8 @@ const TokenDiscovery: React.FC = () => {
       setNetworkInfo({ name: network.name, chainId: Number(network.chainId) });
 
       // Check if the user is on the correct network
-      if (Number(network.chainId) !== 11155111) {
-        setError("Please switch to the Sepolia network in MetaMask.");
+      if (Number(network.chainId) !== EXPECTED_CHAIN_ID) {
+        setError(`Wrong Network`);
         setWrongNetwork(true);
         return;
       } else {
@@ -287,7 +290,7 @@ const TokenDiscovery: React.FC = () => {
     }
   };
 
-  // Network selection issues
+  // Network change listener
 
   useEffect(() => {
     if (!window.ethereum) return;
@@ -300,8 +303,8 @@ const TokenDiscovery: React.FC = () => {
         setNetworkInfo({ name: network.name, chainId: Number(network.chainId) });
 
         // If the user is on the wrong network, show a warning
-        if (Number(network.chainId) !== 11155111) {
-          setError("Please switch to the Sepolia network in MetaMask.");
+        if (Number(network.chainId) !== EXPECTED_CHAIN_ID) {
+          setError(`Wrong Network`);
           setWrongNetwork(true);
         } else {
           setError(null);
@@ -392,16 +395,15 @@ const TokenDiscovery: React.FC = () => {
       {/* Switch network */}
       {error && (
         <div className="bg-red-200 text-red-800 p-3 rounded-md text-center">
-          {error}
-          {networkInfo?.chainId !== 11155111 && (
-            <button
-              onClick={switchNetwork}
-              className="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md mt-2"
-            >
-              Switch to Sepolia
-            </button>
-          )}
-        </div>
+        <p>{error}</p>
+        <p>Expected Network: <strong>{ENVIRONMENT === "PROD" ? "Mainnet" : "Sepolia"}</strong></p>
+        <button
+          onClick={switchNetwork}
+          className="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md mt-2"
+        >
+          Switch to {ENVIRONMENT === "PROD" ? "Mainnet" : "Sepolia"}
+        </button>
+      </div>
       )}
 
       {/* Results Section */}
