@@ -3,9 +3,10 @@ import { ethers } from "ethers";
 
 import logo from "../assets/NEYX_LOGO_TEXT.svg";
 import { FaEthereum, FaSpinner } from "react-icons/fa";
-import { PiPlugsConnectedDuotone } from "react-icons/pi";
+// import { TbCircleLetterS } from "react-icons/tb";  // React icon for Sepolia
 import { FaSun, FaMoon } from "react-icons/fa";
 import { TbPlugConnected } from "react-icons/tb";
+import { RiExchangeFundsLine } from "react-icons/ri";
 import neyxtLogo from "../assets/NEYX_White_Transparnt.svg";
 
 // NEYXT token details
@@ -55,6 +56,19 @@ const TokenDiscovery: React.FC = () => {
     return localStorage.getItem("theme") === "dark";
   });
 
+  // Removes saved scroll position to avoid logo snug at top after refresh
+  // useEffect(() => {
+  //   const handleBeforeUnload = () => {
+  //     window.scrollTo(0, 0);
+  //   };
+  
+  //   window.addEventListener("beforeunload", handleBeforeUnload);
+  
+  //   return () => {
+  //     window.removeEventListener("beforeunload", handleBeforeUnload);
+  //   };
+  // }, []);
+
   // Apply dark mode by default
   useEffect(() => {
     if (isDarkMode) {
@@ -91,6 +105,8 @@ const TokenDiscovery: React.FC = () => {
 
   const [networkInfo, setNetworkInfo] = useState<{ name?: string; chainId?: number } | null>(null);
   const [txStatus, setTxStatus] = useState<string | null>(null);
+
+  const [showSwitchOverlay, setShowSwitchOverlay] = useState(false);
 
   const fetchNEYXTBalance = async (inputAddress: string) => {
     const contract = new ethers.Contract(NEYXT_TOKEN_ADDRESS, ERC20_ABI, provider);
@@ -222,7 +238,7 @@ const TokenDiscovery: React.FC = () => {
       setTxStatus("Transaction failed. Please try again.");
     } finally {
       setLoading(false); // Stop loading after the transaction is processed
-      setTimeout(() => setTxStatus(null), 1000); // Hide overlay after 2 seconds
+      setTimeout(() => setTxStatus(null), 1000); // Hide overlay after 1 seconds
     }
   };
 
@@ -231,20 +247,20 @@ const TokenDiscovery: React.FC = () => {
   //
   const connectWallet = async () => {
 
-    if (walletAddress) {
-      // Disconnect wallet
-      setWalletAddress(null);
-      setNeyxtBalance(null);
-      setEthBalance(null);
-      setError(null);
-      setVestingWalletAddress(null);
-      setVestedBalance(null);
-      setAvailableToWithdraw(null);
-      setStartDate(null);
-      setRemainingDurationInDays(null);
-      setDurationIndays(null);
-      return;
-    }
+    // if (walletAddress) {
+    //   // Disconnect wallet
+    //   setWalletAddress(null);
+    //   setNeyxtBalance(null);
+    //   setEthBalance(null);
+    //   setError(null);
+    //   setVestingWalletAddress(null);
+    //   setVestedBalance(null);
+    //   setAvailableToWithdraw(null);
+    //   setStartDate(null);
+    //   setRemainingDurationInDays(null);
+    //   setDurationIndays(null);
+    //   return;
+    // }
 
     try {
       if (!window.ethereum) {
@@ -259,7 +275,23 @@ const TokenDiscovery: React.FC = () => {
       setSigner(metamaskSigner);
 
       const accounts = await browserProvider.send("eth_requestAccounts", []); // Request accounts
-      const wallet = accounts[0];
+      console.log(`accounts : ${accounts}`);
+
+      console.log(`signer : ${metamaskSigner.address}`);
+      
+      let wallet: string | null = null;
+      if (accounts.length > 0) {
+        wallet = accounts[0]; // Use first connected account
+      } else {
+        // Request permission if no accounts are connected
+        const requestedAccounts = await browserProvider.send("eth_requestAccounts", []);
+        wallet = requestedAccounts[0];
+      }
+
+      if (!wallet) {
+        setError("No account connected.");
+        return;
+      }
       setWalletAddress(wallet);
 
       // Get the connected network
@@ -290,8 +322,9 @@ const TokenDiscovery: React.FC = () => {
     }
   };
 
+  //
   // Network change listener
-
+  //
   useEffect(() => {
     if (!window.ethereum) return;
 
@@ -328,7 +361,7 @@ const TokenDiscovery: React.FC = () => {
     return () => {
       window.ethereum?.removeListener("chainChanged", handleNetworkChange);
     };
-  }, [walletAddress]);
+  }, []);
 
   const switchNetwork = async () => {
     if (!window.ethereum) return;
@@ -341,6 +374,40 @@ const TokenDiscovery: React.FC = () => {
       console.error("Error switching network:", error);
     }
   };
+
+  const requestMoreAccounts = async () => {
+    if (!window.ethereum) {
+      setError("MetaMask is not installed.");
+      return;
+    }
+  
+    try {
+      console.log("Requesting permission to access multiple accounts...");
+      await window.ethereum.request({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }],
+      });
+  
+      // Fetch the newly connected accounts
+      const browserProvider = new ethers.BrowserProvider(window.ethereum);
+      const accounts = await browserProvider.send("eth_accounts", []);
+  
+      if (accounts.length > 0) {
+        console.log("Connected accounts:", accounts);
+        setWalletAddress(accounts[0]); // Set the first account
+        if (walletAddress) {
+          connectWallet();
+        }
+      } else {
+        console.error("No accounts returned.");
+      }
+    } catch (err) {
+      console.error("Error requesting multiple accounts:", err);
+    } 
+  };
+
+  
+
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col items-center p-6">
@@ -355,7 +422,21 @@ const TokenDiscovery: React.FC = () => {
         <h1 className="text-2xl font-bold mt-4 text-gray-800 dark:text-gray-300">
           Token Discovery
         </h1>
+       
       </div>
+
+      {/* Show network-specific icon with tooltip */}
+      {/* {networkInfo?.chainId === 1 ? (
+          <FaEthereum 
+            className="text-gray-200 text-xl" 
+            title="Ethereum Mainnet" // Tooltip on hover
+          />
+        ) : networkInfo?.chainId === 11155111 ? (
+          <TbCircleLetterS 
+            className="text-gray-200 text-xl" 
+            title="Sepolia Testnet" // Tooltip on hover
+          />
+        ) : null} */}
 
       {/* Transaction Status Overlay */}
       {txStatus && (
@@ -372,7 +453,7 @@ const TokenDiscovery: React.FC = () => {
       {/* Wallet Connection Button */}
       <div className="mb-6">
         <button
-          onClick={connectWallet}
+          onClick={walletAddress ? () => setShowSwitchOverlay(true) : connectWallet}
           disabled={loading}
           className="flex items-center gap-2 bg-neyx-orange text-white py-2 px-4 rounded-md shadow hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -380,8 +461,14 @@ const TokenDiscovery: React.FC = () => {
             <FaSpinner className="animate-spin text-xl" />
           ) : walletAddress ? (
             <>
-              <PiPlugsConnectedDuotone className="text-white text-xl" />
-              {truncateAddress(walletAddress)}
+              {/* "Account" Label */}
+              <span className="text-white textlg">Account</span>
+
+              {/* Truncated Wallet Address */}
+              <span className="font-medium text-gray-200">{truncateAddress(walletAddress)}</span>
+
+              {/* Exchange Icon for Switching */}
+              <RiExchangeFundsLine className="text-white text-xl" title="Switch Account" />
             </>
           ) : (
             <>
@@ -391,6 +478,38 @@ const TokenDiscovery: React.FC = () => {
           )}
         </button>
       </div>
+
+      {/* Account Switch Overlay */}
+      {showSwitchOverlay && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center">
+            <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              Change to address selected in MetaMask?
+            </p>
+
+            <div className="flex justify-center gap-4 mt-4">
+              {/* OK Button (Switch Account) */}
+              <button
+                onClick={() => {
+                  requestMoreAccounts();
+                  setShowSwitchOverlay(false);
+                }}
+                className="bg-neyx-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
+              >
+                OK
+              </button>
+
+              {/* Cancel Button (Close Overlay) */}
+              <button
+                onClick={() => setShowSwitchOverlay(false)}
+                className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Switch network */}
       {error && (
