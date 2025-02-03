@@ -61,9 +61,9 @@ const TokenDiscovery: React.FC = () => {
   //   const handleBeforeUnload = () => {
   //     window.scrollTo(0, 0);
   //   };
-  
+
   //   window.addEventListener("beforeunload", handleBeforeUnload);
-  
+
   //   return () => {
   //     window.removeEventListener("beforeunload", handleBeforeUnload);
   //   };
@@ -278,7 +278,7 @@ const TokenDiscovery: React.FC = () => {
       console.log(`accounts : ${accounts}`);
 
       console.log(`signer : ${metamaskSigner.address}`);
-      
+
       let wallet: string | null = null;
       if (accounts.length > 0) {
         wallet = accounts[0]; // Use first connected account
@@ -380,18 +380,18 @@ const TokenDiscovery: React.FC = () => {
       setError("MetaMask is not installed.");
       return;
     }
-  
+
     try {
       console.log("Requesting permission to access multiple accounts...");
       await window.ethereum.request({
         method: "wallet_requestPermissions",
         params: [{ eth_accounts: {} }],
       });
-  
+
       // Fetch the newly connected accounts
       const browserProvider = new ethers.BrowserProvider(window.ethereum);
       const accounts = await browserProvider.send("eth_accounts", []);
-  
+
       if (accounts.length > 0) {
         console.log("Connected accounts:", accounts);
         setWalletAddress(accounts[0]); // Set the first account
@@ -403,10 +403,10 @@ const TokenDiscovery: React.FC = () => {
       }
     } catch (err) {
       console.error("Error requesting multiple accounts:", err);
-    } 
+    }
   };
 
-  
+
 
 
   return (
@@ -422,7 +422,7 @@ const TokenDiscovery: React.FC = () => {
         <h1 className="text-2xl font-bold mt-4 text-gray-800 dark:text-gray-300">
           Token Discovery
         </h1>
-       
+
       </div>
 
       {/* Show network-specific icon with tooltip */}
@@ -441,13 +441,13 @@ const TokenDiscovery: React.FC = () => {
       {/* Transaction Status Overlay */}
       {txStatus && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center flex flex-col items-center">
-          <FaSpinner className="animate-spin text-5xl text-neyx-orange mb-4" />
-          <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-            {txStatus}
-          </p>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center flex flex-col items-center">
+            <FaSpinner className="animate-spin text-5xl text-neyx-orange mb-4" />
+            <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              {txStatus}
+            </p>
+          </div>
         </div>
-      </div>
       )}
 
       {/* Wallet Connection Button */}
@@ -514,15 +514,15 @@ const TokenDiscovery: React.FC = () => {
       {/* Switch network */}
       {error && (
         <div className="bg-red-200 text-red-800 p-3 rounded-md text-center">
-        <p>{error}</p>
-        <p>Expected Network: <strong>{ENVIRONMENT === "PROD" ? "Mainnet" : "Sepolia"}</strong></p>
-        <button
-          onClick={switchNetwork}
-          className="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md mt-2"
-        >
-          Switch to {ENVIRONMENT === "PROD" ? "Mainnet" : "Sepolia"}
-        </button>
-      </div>
+          <p>{error}</p>
+          <p>Expected Network: <strong>{ENVIRONMENT === "PROD" ? "Mainnet" : "Sepolia"}</strong></p>
+          <button
+            onClick={switchNetwork}
+            className="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md mt-2"
+          >
+            Switch to {ENVIRONMENT === "PROD" ? "Mainnet" : "Sepolia"}
+          </button>
+        </div>
       )}
 
       {/* Results Section */}
@@ -538,41 +538,49 @@ const TokenDiscovery: React.FC = () => {
                   Vesting Wallet Details
                 </h2>
 
-                {/* Vested Balance */}
-                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-                  <span className="text-gray-600 dark:text-gray-400">Vested Balance:</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-100">{vestedBalance} NEYXT</span>
-                </div>
+                {remainingDurationInDays && Number(remainingDurationInDays) <= 0 && availableToWithdraw === "0" ? (
+                  <p className="text-center text-lg font-semibold text-gray-600 dark:text-gray-300">
+                    🎉 Vesting Complete!
+                  </p>
+                ) : (
+                  <>
+                    {/* Vested Balance */}
+                    <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                      <span className="text-gray-600 dark:text-gray-400">Vested Balance:</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-100">{vestedBalance} NEYXT</span>
+                    </div>
 
-                {/* Start Date */}
-                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-                  <span className="text-gray-600 dark:text-gray-400">Start Date:</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-100">{startDate}</span>
-                </div>
+                    {/* Start Date */}
+                    <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                      <span className="text-gray-600 dark:text-gray-400">Start Date:</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-100">{startDate}</span>
+                    </div>
 
-                {/* Remaining Days */}
-                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-                  <span className="text-gray-600 dark:text-gray-400">Remaining Days:</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-100">
-                    {remainingDurationInDays} / {durationInDays} Days
-                  </span>
-                </div>
+                    {/* Remaining Days */}
+                    <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                      <span className="text-gray-600 dark:text-gray-400">Remaining Days:</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                        {remainingDurationInDays} / {durationInDays} Days
+                      </span>
+                    </div>
 
-                {/* Available to Withdraw */}
-                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-                  <span className="text-gray-600 dark:text-gray-400">Available to Withdraw:</span>
-                  <span className="font-medium text-green-600 dark:text-green-400">{availableToWithdraw} NEYXT</span>
-                </div>
+                    {/* Available to Withdraw */}
+                    <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                      <span className="text-gray-600 dark:text-gray-400">Available to Withdraw:</span>
+                      <span className="font-medium text-green-600 dark:text-green-400">{availableToWithdraw} NEYXT</span>
+                    </div>
 
-                {/* Withdraw Button */}
-                <div className="flex justify-end mt-4">
-                  <button
-                    onClick={withdrawNEYXT}
-                    className="bg-neyx-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
-                  >
-                    Withdraw Available
-                  </button>
-                </div>
+                    {/* Withdraw Button */}
+                    <div className="flex justify-end mt-4">
+                      <button
+                        onClick={withdrawNEYXT}
+                        className="bg-neyx-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
+                      >
+                        Withdraw Available
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
