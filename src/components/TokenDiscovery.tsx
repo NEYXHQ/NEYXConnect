@@ -34,7 +34,8 @@ const VESTING_WALLET_ABI = [
 const vestingMapping: { [beneficiaryAddress: string]: string } = (() => {
   try {
     const encoded = import.meta.env.VITE_VESTING_MAPPING || "";
-    const decoded = atob(encoded); // Decode Base64
+    const decoded = atob(encoded).toLocaleLowerCase(); // Decode Base64
+    console.log(decoded);
     return JSON.parse(decoded); // Parse JSON
   } catch (error) {
     console.error("Error decoding VITE_VESTING_MAPPING:", error);
@@ -152,9 +153,11 @@ const TokenDiscovery: React.FC = () => {
     try {
       const VESTING_WALLET_ADDRESS = vestingMapping[walletAddress.toLowerCase()];
       if (!VESTING_WALLET_ADDRESS) {
-        console.log("No vesting wallet found for this address.");
+        console.log("No vesting wallet found for this address: ",walletAddress);
         setVestingWalletAddress(null);
         return;
+      } else {
+        console.log("Vesting wallet Address found : ", VESTING_WALLET_ADDRESS);
       }
 
       const contract = new ethers.Contract(
@@ -165,6 +168,7 @@ const TokenDiscovery: React.FC = () => {
 
       // Check if the connected wallet is the beneficiary
       const beneficiary = await contract.owner();
+      console.log("contract : ",contract);
       if (beneficiary.toLowerCase() !== walletAddress.toLowerCase()) {
         setVestingWalletAddress(null); // Not a beneficiary
         return;
@@ -552,33 +556,38 @@ const TokenDiscovery: React.FC = () => {
 
                     {/* Start Date */}
                     <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-                      <span className="text-gray-600 dark:text-gray-400">Start Date:</span>
+                      <span className="text-gray-600 dark:text-gray-400">Vesting Starts on:</span>
                       <span className="font-medium text-gray-800 dark:text-gray-100">{startDate}</span>
                     </div>
 
-                    {/* Remaining Days */}
-                    <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-                      <span className="text-gray-600 dark:text-gray-400">Remaining Days:</span>
-                      <span className="font-medium text-gray-800 dark:text-gray-100">
-                        {remainingDurationInDays} / {durationInDays} Days
-                      </span>
-                    </div>
+                    {/* Show only if vesting has started */}
+                    {Number(startDate) * 1000 < Date.now() && (
+                      <>
+                        {/* Remaining Days */}
+                        <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                          <span className="text-gray-600 dark:text-gray-400">Remaining Days:</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-100">
+                            {remainingDurationInDays} / {durationInDays} Days
+                          </span>
+                        </div>
 
-                    {/* Available to Withdraw */}
-                    <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
-                      <span className="text-gray-600 dark:text-gray-400">Available to Withdraw:</span>
-                      <span className="font-medium text-green-600 dark:text-green-400">{availableToWithdraw} NEYXT</span>
-                    </div>
+                        {/* Available to Withdraw */}
+                        <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 py-3">
+                          <span className="text-gray-600 dark:text-gray-400">Available to Withdraw:</span>
+                          <span className="font-medium text-green-600 dark:text-green-400">{availableToWithdraw} NEYXT</span>
+                        </div>
 
-                    {/* Withdraw Button */}
-                    <div className="flex justify-end mt-4">
-                      <button
-                        onClick={withdrawNEYXT}
-                        className="bg-neyx-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
-                      >
-                        Withdraw Available
-                      </button>
-                    </div>
+                        {/* Withdraw Button */}
+                        <div className="flex justify-end mt-4">
+                          <button
+                            onClick={withdrawNEYXT}
+                            className="bg-neyx-orange hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-md shadow transition"
+                          >
+                            Withdraw Available
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>
