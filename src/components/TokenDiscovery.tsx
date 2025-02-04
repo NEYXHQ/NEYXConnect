@@ -168,7 +168,6 @@ const TokenDiscovery: React.FC = () => {
 
       // Check if the connected wallet is the beneficiary
       const beneficiary = await contract.owner();
-      console.log("contract : ",contract);
       if (beneficiary.toLowerCase() !== walletAddress.toLowerCase()) {
         setVestingWalletAddress(null); // Not a beneficiary
         return;
@@ -630,18 +629,26 @@ const TokenDiscovery: React.FC = () => {
         )}
       </div>
 
-      {/* Dark Mode Toggle Button */}
-      <button
-        onClick={toggleDarkMode}
-        className="p-2 mt-2 rounded-full hover:bg-gray-700 transition"
-      >
-        {isDarkMode ? (
-          <FaSun className="text-neyx-orange text-2xl" />
-        ) : (
-          <FaMoon className="text-neyx-orange text-2xl" />
-        )}
-      </button>
+      <div className="w-full max-w-md flex justify-center items-center mt-6 relative">
+        {/* Dark Mode Toggle Button (Centered) */}
+        <button
+          onClick={toggleDarkMode}
+          className="p-2 rounded-full hover:bg-gray-700 transition"
+        >
+          {isDarkMode ? (
+            <FaSun className="text-neyx-orange text-xl" />
+          ) : (
+            <FaMoon className="text-neyx-orange text-xl" />
+          )}
+        </button>
 
+        {/* Sepolia Network Label (Only if Sepolia) - Right Aligned */}
+        {networkInfo?.chainId === 11155111 && (
+          <span className="absolute right-0 text-gray-500 dark:text-gray-400 text-sm">
+            Sepolia Testnet
+          </span>
+        )}
+      </div>
     </div>
   );
 };
