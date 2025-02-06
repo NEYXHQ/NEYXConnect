@@ -57,19 +57,6 @@ const TokenDiscovery: React.FC = () => {
     return localStorage.getItem("theme") === "dark";
   });
 
-  // Removes saved scroll position to avoid logo snug at top after refresh
-  // useEffect(() => {
-  //   const handleBeforeUnload = () => {
-  //     window.scrollTo(0, 0);
-  //   };
-
-  //   window.addEventListener("beforeunload", handleBeforeUnload);
-
-  //   return () => {
-  //     window.removeEventListener("beforeunload", handleBeforeUnload);
-  //   };
-  // }, []);
-
   // Apply dark mode by default
   useEffect(() => {
     if (isDarkMode) {
