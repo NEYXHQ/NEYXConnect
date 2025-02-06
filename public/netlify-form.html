@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netlify Form Detection</title>
+</head>
+
+<body>
+    <!-- Hidden Form for Email Signup -->
+    <form name="email-signup" netlify netlify-honeypot="bot-field" hidden>
+        <input type="email" name="email" />
+    </form>
+    <!-- Hidden Form for Wallet Address Submission -->
+    <form name="wallet-signup" netlify netlify-honeypot="bot-field" hidden>
+        <input type="text" name="walletAddress" />
+    </form>
+</body>
+
+</html>

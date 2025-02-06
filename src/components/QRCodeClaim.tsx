@@ -161,22 +161,36 @@ const QRCodeClaim: React.FC = () => {
     }
   };
 
-  // **Auto-Submit Wallet Address to Netlify Forms**
+  // **Submit Wallet Address to Netlify**
+  const ENABLE_FORM_SUBMISSION = false;
+
   const submitWalletAddress = async (address: string) => {
-    const formData = new FormData();
-    formData.append("form-name", "wallet-signup");
-    formData.append("walletAddress", address);
+
+    if (!ENABLE_FORM_SUBMISSION) {
+      console.log("⚠️ Form submission is disabled. Wallet address:", address);
+      setFormSubmitted(true);
+      return; // Exit function early
+    }
+
+    const formData = { "form-name": "wallet-signup", walletAddress: address };
 
     try {
       await fetch("/", {
         method: "POST",
-        body: formData,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: encode(formData),
       });
       setFormSubmitted(true);
     } catch (error) {
       console.error("Error submitting wallet address:", error);
     }
+  };
+
+  // ✅ Function to encode form data for Netlify
+  const encode = (data: { [key: string]: string }) => {
+    return Object.keys(data)
+      .map((key) => encodeURIComponent(key) + "=" + encodeURIComponent(data[key]))
+      .join("&");
   };
 
 
@@ -301,10 +315,12 @@ const QRCodeClaim: React.FC = () => {
         </button>
 
         {/* Success Message after Form Submission */}
-      {formSubmitted && (
-        <p className="text-green-500 mt-4">✅ Wallet Registered! You're in.</p>
-      )}
-      
+        {formSubmitted && (
+          <p className="text-green-500 mt-4">
+          ✅ Email Registered! {ENABLE_FORM_SUBMISSION ? "See you soon." : "Kind of..."}
+        </p>
+        )}
+
       </div>
       <div className="mt-4 w-full max-w-md space-y-4">
         {ethBalance !== null && (
@@ -324,11 +340,11 @@ const QRCodeClaim: React.FC = () => {
           </div>
         )}
 
-      {/* Hidden Form for Netlify (Auto-Submitted) */}
-      <form name="wallet-signup" method="POST" data-netlify="true" hidden>
-        <input type="hidden" name="form-name" value="wallet-signup" />
-        <input type="text" name="walletAddress" value={walletAddress || ""} readOnly />
-      </form>
+        {/* Hidden Form for Netlify */}
+        <form name="wallet-signup" method="POST" data-netlify="true" hidden>
+          <input type="hidden" name="form-name" value="wallet-signup" />
+          <input type="text" name="walletAddress" value={walletAddress || ""} readOnly />
+        </form>
 
       </div>
       <div className="w-full max-w-md flex justify-center items-center mt-6 relative">

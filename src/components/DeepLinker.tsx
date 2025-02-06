@@ -4,10 +4,37 @@ const Deeplinker: React.FC = () => {
   const [isEmailMode, setIsEmailMode] = useState(false);
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const ENABLE_FORM_SUBMISSION = false;
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+
+    if (!ENABLE_FORM_SUBMISSION) {
+      console.log("⚠️ Form submission is disabled. Wallet address:", email);
+      setSubmitted(true);
+      return; // Exit function early
+    }
+    
+    const formData = { "form-name": "email-signup", email };
+
+    try {
+      await fetch("/", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: encode(formData),
+      });
+
+      setSubmitted(true); // ✅ Show success message
+    } catch (error) {
+      console.error("Form submission error:", error);
+    }
+  };
+
+  // ✅ Function to encode form data for Netlify
+  const encode = (data: { [key: string]: string }) => {
+    return Object.keys(data)
+      .map((key) => encodeURIComponent(key) + "=" + encodeURIComponent(data[key]))
+      .join("&");
   };
 
   return (
@@ -94,7 +121,9 @@ const Deeplinker: React.FC = () => {
 
       {/* Confirmation Message After Submission */}
       {submitted && (
-        <p className="text-green-500 mt-4">✅ Email Registered! See you soon.</p>
+        <p className="text-green-500 mt-4">
+        ✅ Email Registered! {ENABLE_FORM_SUBMISSION ? "See you soon." : "Kind of..."}
+      </p>
       )}
     </div>
   );
