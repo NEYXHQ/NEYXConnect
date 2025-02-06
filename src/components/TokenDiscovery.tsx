@@ -35,7 +35,6 @@ const vestingMapping: { [beneficiaryAddress: string]: string } = (() => {
   try {
     const encoded = import.meta.env.VITE_VESTING_MAPPING || "";
     const decoded = atob(encoded).toLocaleLowerCase(); // Decode Base64
-    console.log(decoded);
     return JSON.parse(decoded); // Parse JSON
   } catch (error) {
     console.error("Error decoding VITE_VESTING_MAPPING:", error);
