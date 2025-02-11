@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route/*, Link*/ } from "react-router-dom";
 import TokenDiscovery from "./components/TokenDiscovery";
-import QRCodeClaim from "./components/QRCodeClaim"; // Import the new page
+import QRCodeClaim from "./components/QRCodeClaim"; 
+import Claim from "./components/connectWallet"; 
 import ErrorBoundary from "./components/ErrorBoundary";
 import logo from "./assets/NEYX_LOGO_TEXT.svg";
 import { FaSun, FaMoon } from "react-icons/fa";
@@ -69,6 +70,7 @@ const App: React.FC = () => {
           <Route path="/" element={<TokenDiscovery />} />
           <Route path="/qr-claim" element={<QRCodeClaim />} />
           <Route path="/deeplinker" element={<DeepLinker />} />
+          <Route path="/claim" element={<Claim />} />
         </Routes>
       </ErrorBoundary>
     </div>

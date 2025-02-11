@@ -69,8 +69,8 @@ const TokenDiscovery: React.FC = () => {
 
   const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
 
-  const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || "DEV"; // Default to DEV
-  const EXPECTED_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID) || 11155111; // Default to Sepolia
+  const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT //|| "DEV"; // Default to DEV
+  const EXPECTED_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID) //|| 11155111; // Default to Sepolia
 
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [neyxtBalance, setNeyxtBalance] = useState<string | null>(null);
@@ -354,13 +354,67 @@ const TokenDiscovery: React.FC = () => {
 
   const switchNetwork = async () => {
     if (!window.ethereum) return;
+  
     try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
+      const currentChainId = Number(network.chainId);
+      
+      const expectedChainId = EXPECTED_CHAIN_ID; // Ensure it's a number
+      const hexChainId = "0x" + expectedChainId.toString(16); // Convert to unpadded hex
+  
+      if (currentChainId === expectedChainId) {
+        console.log("Already on the expected network.");
+        return;
+      }
+  
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: ethers.toBeHex(11155111) }], // Sepolia Chain ID
+        params: [{ chainId: hexChainId }], // Ensure proper hex format
       });
-    } catch (error) {
+  
+      console.log(`Switched to network: ${expectedChainId}`);
+
+      // Reload data
+      if (walletAddress) {
+        await FetchWalletBalances(walletAddress);
+        await fetchVestingWalletData(walletAddress);
+      }
+    } catch (error: any) {
       console.error("Error switching network:", error);
+  
+      // Handle network not found error (code 4902)
+      if (error.code === 4902) {
+        console.log("Network not found in MetaMask. Attempting to add it.");
+        await addNetwork();
+      }
+    }
+  };
+
+  const addNetwork = async () => {
+    const expectedChainId = EXPECTED_CHAIN_ID; // Ensure it's a number
+    const hexChainId = "0x" + expectedChainId.toString(16); // Convert to hex
+  
+    try {
+      await window.ethereum?.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: hexChainId, // Corrected format
+            rpcUrls: ["https://rpc.sepolia.org"], // Replace with correct RPC URL
+            chainName: "Sepolia Testnet",
+            nativeCurrency: {
+              name: "ETH",
+              symbol: "ETH",
+              decimals: 18,
+            },
+            blockExplorerUrls: ["https://sepolia.etherscan.io"],
+          },
+        ],
+      });
+      console.log("Network added successfully!");
+    } catch (error) {
+      console.error("Failed to add network:", error);
     }
   };
 

@@ -1,0 +1,6 @@
+/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization
+  X-Frame-Options: ALLOW-FROM https://wfclaim.netlify.app/Claim https://wfounders.io
+  Content-Security-Policy: frame-ancestors 'self' https://wfclaim.netlify.app/Claim https://wfounders.io;
