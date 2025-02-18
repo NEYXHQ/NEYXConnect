@@ -4,7 +4,7 @@ import TokenDiscovery from "./components/TokenDiscovery";
 import QRCodeClaim from "./components/QRCodeClaim"; 
 import Claim from "./components/connectWallet"; 
 import ErrorBoundary from "./components/ErrorBoundary";
-import logo from "./assets/NEYX_LOGO_TEXT.svg";
+// import logo from "./assets/NEYX_LOGO_TEXT.svg";
 import { FaSun, FaMoon } from "react-icons/fa";
 import DeepLinker from "./components/DeepLinker";
 
@@ -34,7 +34,7 @@ const App: React.FC = () => {
       <ErrorBoundary
         fallback={
           <div className="flex flex-col items-center justify-center min-h-screen">
-            <img src={logo} alt="NEYX Logo" className="w-40 mb-4" />
+            {/* <img src={logo} alt="NEYX Logo" className="w-40 mb-4" /> */}
             <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-300">
               Something went wrong.
             </h1>
