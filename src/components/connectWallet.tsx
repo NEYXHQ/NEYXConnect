@@ -1,33 +1,43 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "ethers";
-import { FaEthereum, FaSpinner } from "react-icons/fa";
+import { FaSpinner } from "react-icons/fa";
 import { TbPlugConnected } from "react-icons/tb";
 import { RiExchangeFundsLine } from "react-icons/ri";
+// import { SiPolygon } from "react-icons/si";
 
 // Expected Chain
 const EXPECTED_CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID);
 
 const WalletConnectPage: React.FC = () => {
     const [walletAddress, setWalletAddress] = useState<string | null>(null);
-    const [ethBalance, setEthBalance] = useState<string | null>(null);
+    // const [polBalance, setEthBalance] = useState<string | null>(null);
     const [networkInfo, setNetworkInfo] = useState<{ name?: string; chainId?: number } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [wrongNetwork, setWrongNetwork] = useState<boolean>(false);
     const [showSwitchOverlay, setShowSwitchOverlay] = useState(false);
 
-    const [minting, setMinting] = useState<boolean>(false);
-    const [mintSuccess, setMintSuccess] = useState<boolean>(false);
-    const [txHash, setTxHash] = useState<string | null>(null); // Store transaction hash
+    // const [minting, setMinting] = useState<boolean>(false);
+    // const [mintSuccess, setMintSuccess] = useState<boolean>(false);
+    // const [txHash, setTxHash] = useState<string | null>(null); // Store transaction hash
     // const [alreadyMinted, setAlreadyMinted] = useState<boolean>(false); // ✅ Track if address has minted
 
     // NFT State
-    const [nftMetadata, setNftMetadata] = useState<{ image: string; name: string } | null>(null);
+    const [nftMetadata, setNftMetadata] = useState<{ 
+        image: string; 
+        name: string; 
+        tokenId: string; 
+        contractAddress: string;
+    } | null>(null);
     const [fetchingNFT, setFetchingNFT] = useState<boolean>(false);
-    const API_BASE_URL = "https://wfounders.club/api/nft/";
 
-    if (!window.ethereum) throw new Error("MetaMask is not installed. Please install MetaMask.");
-    const provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider);
+    const isBrave = navigator.userAgent.includes("Brave");
+    const isMetaMask = window.ethereum && window.ethereum.isMetaMask;
+    
+    if (!window.ethereum || (!isMetaMask && !isBrave)) {
+        throw new Error("No compatible Ethereum wallet detected. Please install MetaMask or use Brave Wallet.");
+    }
+    const provider = new ethers.BrowserProvider(window.ethereum );
 
     const fetchETHBalance = async (inputAddress: string) => {
         const balance = await provider.getBalance(inputAddress);
@@ -50,6 +60,8 @@ const WalletConnectPage: React.FC = () => {
 
             const network = await browserProvider.getNetwork();
             setNetworkInfo({ name: network.name, chainId: Number(network.chainId) });
+            console.log(`network is : ${network.name} / ${network.chainId}`);
+            console.log(`Expected chain ID = ${EXPECTED_CHAIN_ID}`);
 
             if (Number(network.chainId) !== EXPECTED_CHAIN_ID) {
                 setError("Wrong Network");
@@ -59,8 +71,8 @@ const WalletConnectPage: React.FC = () => {
                 setWrongNetwork(false);
             }
 
-            const eth = await fetchETHBalance(wallet);
-            setEthBalance(eth);
+            // const eth = await fetchETHBalance(wallet);
+            // setEthBalance(eth);
         } catch (err) {
             console.error(err);
             setError((err as Error).message || "Failed to connect wallet");
@@ -82,8 +94,8 @@ const WalletConnectPage: React.FC = () => {
 
             console.log(`Switched to network: ${expectedChainId}`);
             if (walletAddress) {
-                const eth = await fetchETHBalance(walletAddress);
-                setEthBalance(eth);
+                // const eth = await fetchETHBalance(walletAddress);
+                // setEthBalance(eth);
             }
         } catch (error: any) {
             console.error("Error switching network:", error);
@@ -98,10 +110,10 @@ const WalletConnectPage: React.FC = () => {
                 params: [
                     {
                         chainId: "0x" + EXPECTED_CHAIN_ID.toString(16),
-                        rpcUrls: ["https://rpc.sepolia.org"],
-                        chainName: "Sepolia Testnet",
-                        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-                        blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                        rpcUrls: ["https://polygon-rpc.com"],
+                        chainName: "Polygon Mainnet",
+                        nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 },
+                        blockExplorerUrls: ["https://polygonscan.com"],
                     },
                 ],
             });
@@ -126,9 +138,7 @@ const WalletConnectPage: React.FC = () => {
             if (accounts.length > 0) {
                 setWalletAddress(accounts[0]);
                  // ✅ Reset NFT & transaction data
-                setTxHash(null);
-                setMinting(false);
-                setMintSuccess(false);
+                // setTxHash(null);
 
                 // ✅ Fetch new wallet data
                 connectWallet();
@@ -177,6 +187,7 @@ const WalletConnectPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        console.log(`here - Trigegred`);
         if (walletAddress) {
             fetchNFT(walletAddress);
         }
@@ -189,63 +200,29 @@ const WalletConnectPage: React.FC = () => {
     const fetchNFT = async (wallet: string) => {
         try {
             setFetchingNFT(true);
-            const response = await fetch(`${API_BASE_URL}${wallet}`);
+            
+            const response = await fetch(`https://wfounders.club/api/metadata/${wallet}`);
             if (!response.ok) throw new Error("No NFT found for this wallet.");
-
+    
             const metadata = await response.json();
-            setNftMetadata({ image: metadata.image, name: metadata.name });
+    
+            console.log("✅ NFT Metadata Fetched:", metadata);
+    
+            // Store NFT details including tokenId & contractAddress for verification
+            setNftMetadata({
+                image: metadata.image,
+                name: metadata.name,
+                tokenId: metadata.tokenId,
+                contractAddress: metadata.contractAddress,
+            });
+    
         } catch (err) {
-            console.error("Error fetching NFT:", err);
+            console.error("❌ Error fetching NFT:", err);
             setNftMetadata(null);
         } finally {
             setFetchingNFT(false);
         }
     };
-
-    // ---------------
-    //   NFT Section
-    // ---------------
-
-    // const claimNFT = async () => {
-    //     if (!walletAddress) {
-    //         alert("Please connect your wallet first.");
-    //         return;
-    //     }
-
-    //     setMinting(true);  // Show "Minting in progress..."
-    //     setMintSuccess(false); // Reset success state
-    //     setTxHash(null); // Reset transaction hash before minting 
-
-    //     try {
-    //         const response = await fetch("https://wfounders.club/claim-nft", {
-    //             method: "POST",
-    //             headers: { "Content-Type": "application/json" },
-    //             body: JSON.stringify({ walletAddress }),
-    //         });
-
-    //         if (!response.ok) {
-    //             setMinting(false);
-    //             setMintSuccess(true); // Show "Minting Complete!"
-    //             const errorData = await response.json();
-    //             throw new Error(errorData.error || "Something went wrong.");
-    //         }
-
-    //         console.log('Waiting for Mint to complete')
-
-    //         const data = await response.json();
-    //         if (response.ok) {
-    //             setMinting(false);
-    //             setMintSuccess(true); // Show "Minting Complete!"
-    //             setTxHash(data.txHash); // Save transaction hash
-    //         } else {
-    //             alert(`Error: ${data.error}`);
-    //             console.error("Minting Error:", data.error);
-    //         }
-    //     } catch (err) {
-    //         alert("Failed to claim NFT.");
-    //         console.error(err);
-    //     }
-    // };
 
     return (
         <div className="min-h-screen flex flex-col items-center p-6 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -256,7 +233,7 @@ const WalletConnectPage: React.FC = () => {
                 <div className="bg-red-200 text-red-800 p-3 rounded-md text-center">
                     <p>Wrong Network</p>
                     <button onClick={switchNetwork} className="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md mt-2">
-                        Switch to Sepolia
+                        Switch to Polygon
                     </button>
                 </div>
             ) : (
@@ -308,63 +285,18 @@ const WalletConnectPage: React.FC = () => {
                         walletAddress && <p className="text-gray-500 mt-4">No NFT found for this wallet.</p>
                     )}
 
-                    {ethBalance !== null && (
-                        <p className="text-lg font-semibold mt-4 flex items-center">
-                            <FaEthereum className="text-blue-500 text-2xl mr-2" /> ETH Balance: {ethBalance}
-                        </p>
-                    )}
-
-                    
-                    {/* Show "Claim NFT" button only if a wallet is connected */}
-                    {/*walletAddress && !wrongNetwork && (
-                        <button
-                            onClick={claimNFT}
-                            disabled={minting}
-                            className={`mt-4 px-6 py-2 rounded-md shadow transition font-semibold ${minting
-                                    ? "bg-gray-400 text-white cursor-not-allowed"
-                                    : mintSuccess
-                                        ? "bg-green-500 text-white"
-                                        : "bg-blue-500 hover:bg-blue-600 text-white"
-                                }`}
-                        >
-                            {minting ? "Minting in progress..." : mintSuccess ? "Minting Complete! ✅" : "Claim NFT"}
-                        </button>
-                    )*/}
-
-                    {ethBalance !== null && (
-                        <p className="text-lg font-semibold mt-4 flex items-center">
-                            <FaEthereum className="text-blue-500 text-2xl mr-2" /> ETH Balance: {ethBalance}
-                        </p>
-                    )}
-
-                    {/* Show NFT image & transaction hash ONLY if minting is successful */}
-                    {txHash && (
-                        <div className="mt-6 text-center">
-                            <h2 className="text-lg font-semibold">Your Minted NFT</h2>
-
-                            <img
-                                src="https://res.cloudinary.com/ddnwvo0qv/image/upload/v1739366956/WF01_hvlduz.png" // Use actual image URL
-                                alt="Minted NFT"
-                                className="w-full max-w-xs h-auto object-contain rounded-lg shadow-lg mt-2 mx-auto"
-                            />
-
-                            {/* Show transaction hash */}
-                            <div className="mt-4 bg-gray-200 dark:bg-gray-800 p-4 rounded-lg shadow-md">
-                                <p className="text-sm text-gray-600 dark:text-gray-300">Transaction Hash:</p>
-                                <p className="text-sm font-mono text-blue-600 dark:text-blue-400 break-all">
-                                    {txHash}
-                                </p>
-                                <a
-                                    href={`https://sepolia.etherscan.io/tx/${txHash}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-500 hover:underline mt-2 inline-block"
-                                >
-                                    View on Etherscan
-                                </a>
-                            </div>
+                    {error && (
+                        <div className="bg-red-200 text-red-800 p-3 rounded-md text-center">
+                            <p>{error}</p>
                         </div>
                     )}
+
+                    {/* {polBalance !== null && (
+                        <p className="text-lg font-semibold mt-4 flex items-center">
+                            <SiPolygon className="text-blue-500 text-2xl mr-2" />  Pol balance: {polBalance}
+                        </p>
+                    )} */}
+
 
                     {/* Subtle mention of Sepolia */}
                     {networkInfo?.chainId === 11155111 && (
@@ -378,11 +310,8 @@ const WalletConnectPage: React.FC = () => {
                             <p>{error}</p>
                         </div>
                     )}
-
                 </>
             )}
-
-
         </div>
     );
 };

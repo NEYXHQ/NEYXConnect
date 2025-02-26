@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route/*, Link*/ } from "react-router-dom";
 import TokenDiscovery from "./components/TokenDiscovery";
-import QRCodeClaim from "./components/QRCodeClaim"; 
-import Claim from "./components/connectWallet"; 
+import QRCodeClaim from "./components/QRCodeClaim";
+import NFTFounder from "./components/connectWallet";
 import ErrorBoundary from "./components/ErrorBoundary";
 // import logo from "./assets/NEYX_LOGO_TEXT.svg";
 import { FaSun, FaMoon } from "react-icons/fa";
 import DeepLinker from "./components/DeepLinker";
+import { FaChrome, FaEthereum } from "react-icons/fa";
+import { FaBrave } from "react-icons/fa6";
 
 const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -33,23 +35,48 @@ const App: React.FC = () => {
       {/* Error Boundary */}
       <ErrorBoundary
         fallback={
-          <div className="flex flex-col items-center justify-center min-h-screen">
-            {/* <img src={logo} alt="NEYX Logo" className="w-40 mb-4" /> */}
+          <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
             <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-300">
-              Something went wrong.
+              MetaMask is not installed.
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2 mb-6 text-center">
-              Please try refreshing the page or check if your browser supports all required features.
+            <p className="text-gray-600 dark:text-gray-400 mt-2 mb-6">
+              To interact with this app, you need a Web3-enabled browser.
             </p>
+            <div className="flex flex-col gap-4">
+              <a
+                href="https://brave.com/download/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 transition"
+              >
+                <FaBrave className="mr-2 text-xl" /> Download Brave
+              </a>
+              <a
+                href="https://www.google.com/chrome/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition"
+              >
+                <FaChrome className="mr-2 text-xl" /> Download Chrome
+              </a>
+              <a
+                href="https://metamask.io/download/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center px-4 py-2 bg-yellow-500 text-white rounded-lg shadow-md hover:bg-yellow-600 transition"
+              >
+                <FaEthereum className="mr-2 text-xl" /> Install MetaMask
+              </a>
+            </div>
+            {/* Dark Mode Toggle Button (Centered) */}
             <button
               onClick={toggleDarkMode}
-              className="p-1.5 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-              title="Toggle Dark Mode"
+              className="p-2 rounded-full hover:bg-gray-700 transition"
             >
               {isDarkMode ? (
-                <FaSun className="text-yellow-500 text-lg" />
+                <FaSun className="text-neyx-orange text-xl" />
               ) : (
-                <FaMoon className="text-blue-500 text-lg" />
+                <FaMoon className="text-neyx-orange text-xl" />
               )}
             </button>
           </div>
@@ -70,7 +97,7 @@ const App: React.FC = () => {
           <Route path="/" element={<TokenDiscovery />} />
           <Route path="/qr-claim" element={<QRCodeClaim />} />
           <Route path="/deeplinker" element={<DeepLinker />} />
-          <Route path="/claim" element={<Claim />} />
+          <Route path="/nftfounder" element={<NFTFounder />} />
         </Routes>
       </ErrorBoundary>
     </div>
